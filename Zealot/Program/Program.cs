@@ -9,13 +9,14 @@ namespace Zealot
 
         void Construction()
         {
-            _scanerDevices = obj<ScanerDevices>(ScanerDevices.NAME);
         }
 
         void Start()
         {
             Logger.S_I.To(this, "starting ...");
             {
+                _scanerDevices = obj<ScanerDevices>(ScanerDevices.NAME);
+
                 ReadLine.Start(this);
             }
             Logger.S_I.To(this, "start");
@@ -63,6 +64,8 @@ namespace Zealot
                         Logger.S_E.To(this, startConnectionInfo);
 
                         destroy();
+
+                        return;
                     }
                 }
                 else 
@@ -70,6 +73,8 @@ namespace Zealot
                     Logger.S_E.To(this, defineInfo);
 
                     destroy();
+
+                    return;
                 }
             }
             Logger.S_I.To(this, "end configurate");
@@ -80,6 +85,10 @@ namespace Zealot
             if (command == "exit")
             {
                 destroy();
+            }
+            else 
+            {
+                ReadLine.Input();
             }
         }
     }

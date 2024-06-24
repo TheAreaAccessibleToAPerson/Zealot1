@@ -103,6 +103,8 @@ namespace Butterfly
                         if (s_values.TryGetValue(name, out action))
                         {
                             action.Invoke(command);
+
+                            _isInput = false;
                         }
                         else
                         {
@@ -120,11 +122,20 @@ namespace Butterfly
             }
         }
 
+        public static bool _isInput = false;
+
         public static void Input(string objName = "", string text = "")
         {
             lock (s_locker)
-                if (s_values.Count > 0)
-                    Work(objName, text);
+            {
+                if (_isInput == false)
+                {
+                    _isInput = true;
+
+                    if (s_values.Count > 0)
+                        Work(objName, text);
+                }
+            }
         }
 
         /// <summary>

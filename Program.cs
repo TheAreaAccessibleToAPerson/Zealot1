@@ -16,36 +16,15 @@ namespace Butterfly
                 EventsSetting = new EventSetting[] 
                 {
                     new EventSetting(Zealot.Header.Events.LOGGER, 
-                        Zealot.Header.Events.LOGGER_TIME_DELAY)
+                        Zealot.Header.Events.LOGGER_TIME_DELAY),
+
+                    new EventSetting(Zealot.Header.Events.MONGO_DB, 
+                        Zealot.Header.Events.MONGO_DB_TIME_DELAY),
+
+                    new EventSetting(Zealot.Header.Events.SCAN_DEVICES, 
+                        Zealot.Header.Events.SCAN_DEVICES_TIME_DELAY)
                 }
             });
-
-            /*
-            if (Zealot.MongoDB.DefineConnection("mongodb://localhost:27017", out string defineInfo))
-            {
-                Console.WriteLine(defineInfo);
-
-                if (Zealot.MongoDB.StartConnection(out string startConnectionInfo))
-                {
-                    Console.WriteLine(startConnectionInfo);
-
-                    if (Zealot.MongoDB.TryCreatingDatabase("1", out string info1))
-                    {
-                        Console.WriteLine(info1);
-                    }
-                    else Console.WriteLine(info1);
-
-                    if (Zealot.MongoDB.TryGetDatabase("1", out IMongoDatabase db, out string info))
-                    {
-                        Console.WriteLine(info);
-                        Person p = new Person();
-                    }
-                    else Console.WriteLine(info);
-                }
-                else Console.WriteLine(startConnectionInfo);
-            }
-            else Console.WriteLine(defineInfo);
-            */
         }
     }
 }

@@ -2,24 +2,41 @@ namespace Zealot.hellper
 {
     public static class Address
     {
-    public class Values 
-    {
-        public string[] Addresses { set; get; }
-
-        public DiopozoneOfAddresses[] DiopozonesOfAddresses { set; get; }
-    }
-
-    public class DiopozoneOfAddresses 
-    {
-        public string Start { set; get; }
-        public string End { set; get; }
-
-        public DiopozoneOfAddresses(string start, string end)
+        public class Values
         {
-            Start = start;
-            End = end;
+            public string[] Addresses { set; get; }
+
+            public DiopozoneOfAddresses[] DiopozonesOfAddresses { set; get; }
         }
-    }
+
+        public class DiopozoneOfAddresses
+        {
+            public string Start { set; get; }
+            public string End { set; get; }
+
+            public DiopozoneOfAddresses(string start, string end)
+            {
+                Start = start;
+                End = end;
+            }
+        }
+
+        public static bool ConvertDioposoneAddresses(string value, out string[] result, 
+            out string error)
+        {
+            error = "";
+            {
+                result = value.Split("-");
+
+                if (result.Length == 2) return true;
+
+                error = $"Неверный формат диопозона адрресов [{value}], ожидается что значение должно иметь " + 
+                    $"вот такой вид [127.0.0.1-127.0.0.255]";
+
+            }
+            return false;
+        }
+
         public static List<string> GetAddresses(Values settings)
         {
             List<string> result = new List<string>();

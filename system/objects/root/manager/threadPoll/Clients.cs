@@ -148,6 +148,8 @@ namespace Butterfly.system.objects.root.manager
                     {
                         Count--;
 
+                        //_runs[index].Invoke();
+
                         // Проинформирем клинта что он отключон.
                         _toInformingClients[index].Invoke(root.poll.InformingType.EndUnsubscribe,
                             ticket.IndexInSubscribePollManager, ID, index);

@@ -10,7 +10,13 @@ namespace Zealot
             public const int SYSTEM_TIME_DELAY = 5;
 
             public const string LOGGER = "Logger";
-            public const int LOGGER_TIME_DELAY = 10;
+            public const int LOGGER_TIME_DELAY = 3;
+
+            public const string MONGO_DB = "MongoDB";
+            public const int MONGO_DB_TIME_DELAY = 5;
+
+            public const string SCAN_DEVICES = "ScanDevices";
+            public const int SCAN_DEVICES_TIME_DELAY = 5;
         }
 
         private readonly WritingText _writingText = new WritingText();
@@ -19,6 +25,8 @@ namespace Zealot
         {
             listen_events(Events.SYSTEM, Events.SYSTEM);
             listen_events(Events.LOGGER, Events.LOGGER);
+            listen_events(Events.MONGO_DB, Events.MONGO_DB);
+            listen_events(Events.SCAN_DEVICES, Events.SCAN_DEVICES);
             
             input_to(ref Logger.S_I, Events.LOGGER, _writingText.SystemInformation);
             input_to(ref Logger.S_Is, Events.LOGGER, _writingText.SystemInformations);

@@ -89,6 +89,8 @@ namespace Zealot
 
         public void Error(IInformation info, string message)
         {
+            System.Console.WriteLine(
+                $"{info.GetExplorer()}/{info.GetKey()}:{message}");
         }
         public void Errors(IInformation info, string message, IEnumerable<string> messages)
         {

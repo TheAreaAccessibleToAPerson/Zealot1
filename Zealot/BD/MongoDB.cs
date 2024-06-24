@@ -1,3 +1,4 @@
+using System.Reflection.Metadata.Ecma335;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -106,6 +107,65 @@ namespace Zealot
             }
         }
 
+        public static bool ContainsCollection<T>(string dbName, string collectionName,
+            out string error)
+        {
+            if (dbName == "")
+            {
+                error = $"[MongoDB|{_connection}]Вы не можете проверить наличие коллекции [{collectionName}] + " +
+                    $", так как передали пустое имя базы данных.";
+
+                return false;
+            }
+
+            if (collectionName == "")
+            {
+                error = $"[MongoDB|{_connection}]Вы не можете проверить наличие коллекции " +
+                    $" в базе данных [{dbName}], так как передали пустое имя коллекции.";
+
+                return false;
+            }
+
+            if (_client != null)
+            {
+                try
+                {
+                    IMongoDatabase db = _client.GetDatabase(dbName);
+
+                    if (db != null)
+                    {
+                        IMongoCollection<T> c = db.GetCollection<T>(collectionName);
+
+                        error = "";
+
+                        if (c != null)
+                            return true;
+                        else
+                            return false;
+                    }
+                    else
+                    {
+                        error = $"[MongoDB|{_connection}]Вы не можете проверить наличие коллекции[{collectionName}] " +
+                            $" в базе данных [{dbName}], так как такой базы данных не существует.";
+
+                        return false;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    error = $"[MongoDB|{_connection}]Вы не можете проверить наличие коллекции[{collectionName}] " +
+                        $" в базе данных [{dbName}], так как отсутствует соединение с сервером.";
+
+                    return false;
+                }
+            }
+            else
+            {
+                error = ConnectionData.NULL;
+                return false;
+            }
+        }
+
         public static bool ContainsDatabase(string name, out string error)
         {
             error = "";
@@ -114,13 +174,26 @@ namespace Zealot
             {
                 try
                 {
+                    var c = _client.GetDatabase(name);
+
+                    if (c != null)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+                    /*
                     using (var c = _client.ListDatabaseNames())
                     {
                         foreach (string s in c.ToList())
                             if (s == name) return true;
                     }
+                    */
                 }
-                catch (TimeoutException ex)
+                catch (TimeoutException)
                 {
                     error = $"[MongoDB|{_connection}]Невозможно проверить наличие базы данных {name}, так как";
                 }
@@ -245,7 +318,7 @@ namespace Zealot
 
                         if (c != null)
                         {
-                            info = $"[MongoDB{_connection}]Вы успешно добавили документ {typeof(T)} " + 
+                            info = $"[MongoDB{_connection}]Вы успешно добавили документ {typeof(T)} " +
                                 $"в коллекцию {collectionName} базы данных {dbName}";
 
                             c.InsertOne(doc);
@@ -254,7 +327,7 @@ namespace Zealot
                         }
                         else
                         {
-                            info = information + $"так как отсутвует коллекция под таким именем " + 
+                            info = information + $"так как отсутвует коллекция под таким именем " +
                                 $"хранящяя документ типа {typeof(T)}";
 
                             return false;
@@ -372,6 +445,259 @@ namespace Zealot
             {
                 info = ConnectionData.NULL;
 
+                return false;
+            }
+        }
+
+        public static bool TryFindFirst(string databaseName, string collectionName,
+            out string info, string key, out BsonDocument doc, out int count)
+        {
+            count = -1;
+
+            string information = $"[MongoDB|{_connection}]Не удалось получить документ, так как";
+
+            if (collectionName == "")
+            {
+                info = information + $"текущее имя колекции не может быть пустым.";
+
+                doc = default;
+
+                return false;
+            }
+
+            if (databaseName == "")
+            {
+                info = information + $"было передано пустое имя для базы данных.";
+
+                doc = default;
+
+                return false;
+            }
+
+            if (_client != null)
+            {
+                try
+                {
+                    IMongoDatabase db = _client.GetDatabase(databaseName);
+
+                    if (db != null)
+                    {
+                        IMongoCollection<BsonDocument> c = db.GetCollection<BsonDocument>(collectionName);
+
+                        if (c != null)
+                        {
+                            List<BsonDocument> buffer = c.Find(key).ToList();
+                            count = buffer.Count;
+                            doc = buffer[0];
+
+                            info = $"[MongoDB|{_connection}]Вы получили BsonDocument";
+
+                            return true;
+                        }
+                        else
+                        {
+                            info = information +
+                                $" коллекции {collectionName} нету в базе данных {databaseName}";
+
+                            doc = default;
+
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        info = information +
+                            $"базы данных с именем {databaseName} не сущесвует.";
+
+                        doc = default;
+
+                        return false;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    info = information + "отсутвует подключение к серверу.";
+                    doc = default;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    info = information + ex.ToString();
+                    doc = default;
+                    return false;
+                }
+            }
+            else
+            {
+                info = information + ConnectionData.NULL;
+                doc = default;
+                return false;
+            }
+        }
+
+        public static bool TryDeleteOne(string databaseName, string collectionName, 
+            string key, string value, out string info)
+        {
+            string information = $"[MongoDB|{_connection}]Не удалось удалить документ, так как ";
+
+            if (collectionName == "")
+            {
+                info = information + $"текущее имя колекции не может быть пустым.";
+
+                return false;
+            }
+
+            if (databaseName == "")
+            {
+                info = information + $"было передано пустое имя для базы данных.";
+
+                return false;
+            }
+
+            if (key == "")
+            {
+                info = information + $" ключь не может быть пустым.";
+
+                return false;
+            }
+
+            if (_client != null)
+            {
+                try
+                {
+                    IMongoDatabase db = _client.GetDatabase(databaseName);
+
+                    if (db != null)
+                    {
+                        IMongoCollection<BsonDocument> collection 
+                            = db.GetCollection<BsonDocument>(collectionName);
+
+                        if(collection != null)
+                        {
+                            long count = collection.DeleteOne(new BsonDocument(key, value)).DeletedCount;
+
+                            info = $"Вы удалили {count} документов c ключом {key} и значением {value}";
+
+                            return true;
+                        }
+                        else 
+                        {
+                            info = information + $" коллекции с именем [{collectionName}] " + 
+                                $" нету в базе данных [{databaseName}]";
+
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        info = information + $"базы данных с именем {databaseName} не сущесвует.";
+                        return false;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    info = information + "отсутвует подключение к серверу.";
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    info = information + ex.ToString();
+                    return false;
+                }
+            }
+            else
+            {
+                info = information + ConnectionData.NULL;
+
+                return false;
+            }
+        }
+
+        public static bool TryFind(string databaseName, string collectionName,
+            out string info, out List<BsonDocument> doc)
+        {
+            string information = $"[MongoDB|{_connection}]Не удалось получить список документ, так как";
+
+            if (collectionName == "")
+            {
+                info = information + $"текущее имя колекции не может быть пустым.";
+
+                doc = default;
+
+                return false;
+            }
+
+            if (databaseName == "")
+            {
+                info = information + $"было передано пустое имя для базы данных.";
+
+                doc = default;
+
+                return false;
+            }
+
+            if (_client != null)
+            {
+                try
+                {
+                    IMongoDatabase db = _client.GetDatabase(databaseName);
+
+                    if (db != null)
+                    {
+                        IMongoCollection<BsonDocument> c = db.GetCollection<BsonDocument>(collectionName);
+
+                        if (c != null)
+                        {
+                            doc = c.Find(new BsonDocument()).ToList();
+
+                            if (doc != null)
+                            {
+                                info = $"[MongoDB|{_connection}]Вы получили BsonDocument в количесве {doc.Count}";
+                            }
+                            else
+                            {
+                                info = $"[MongoDB|{_connection}]У вас нету неодного нокумента.";
+                            }
+
+                            return true;
+                        }
+                        else
+                        {
+                            info = information +
+                                $" коллекции {collectionName} нету в базе данных {databaseName}";
+
+                            doc = default;
+
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        info = information +
+                            $"базы данных с именем {databaseName} не сущесвует.";
+
+                        doc = default;
+
+                        return false;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    info = information + "отсутвует подключение к серверу.";
+                    doc = default;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    info = information + ex.ToString();
+                    doc = default;
+                    return false;
+                }
+            }
+            else
+            {
+                info = information + ConnectionData.NULL;
+                doc = default;
                 return false;
             }
         }
