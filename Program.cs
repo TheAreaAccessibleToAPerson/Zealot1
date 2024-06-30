@@ -21,8 +21,14 @@ namespace Butterfly
                     new EventSetting(Zealot.Header.Events.MONGO_DB, 
                         Zealot.Header.Events.MONGO_DB_TIME_DELAY),
 
+                    new EventSetting(Zealot.Header.Events.WORK_DEVICE,
+                        Zealot.Header.Events.WORK_DEVICE_TIME_DELAY),
+
                     new EventSetting(Zealot.Header.Events.SCAN_DEVICES, 
-                        Zealot.Header.Events.SCAN_DEVICES_TIME_DELAY)
+                        Zealot.Header.Events.SCAN_DEVICES_TIME_DELAY),
+
+                    new EventSetting(Zealot.Header.Events.GET_INFORMATION_DEVICES,
+                        Zealot.Header.Events.GET_INFORMATION_DEVICES_TIME_DELAY)
                 }
             });
         }

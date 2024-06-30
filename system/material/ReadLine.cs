@@ -128,13 +128,8 @@ namespace Butterfly
         {
             lock (s_locker)
             {
-                if (_isInput == false)
-                {
-                    _isInput = true;
-
-                    if (s_values.Count > 0)
-                        Work(objName, text);
-                }
+                if (s_values.Count > 0)
+                Work(objName, text);
             }
         }
 

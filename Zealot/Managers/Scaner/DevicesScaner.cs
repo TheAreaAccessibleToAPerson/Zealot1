@@ -43,6 +43,7 @@ namespace Zealot.manager
         /// <typeparam name="string"></typeparam>
         /// <returns></returns>
         private readonly List<string> _addresses = new List<string>();
+
         /// <summary>
         /// Диапозоны адресов.
         /// </summary>
@@ -50,11 +51,19 @@ namespace Zealot.manager
         /// <returns></returns>
         private readonly List<string[]> _diopozoneAddresses = new List<string[]>();
 
+        /// <summary>
+        /// Сдесь записаны все адреса из диопазонов.
+        /// </summary>
+        /// <typeparam name="string"></typeparam>
+        /// <returns></returns>
+        private readonly Dictionary<string, string[]> _diopozoneAddressesList = new();
+
         IInput<string> i_setState;
 
         IInput<string> i_addAddress;
         IInput<string> i_deleteAddress;
         IInput<string, string> i_addDiopozoneOfAddresses;
+        IInput<string, string> i_deleteDiopozoneOfAddresses;
         IInput i_showAddresses;
 
         /// <summary>
@@ -84,6 +93,8 @@ namespace Zealot.manager
 
         public void Command(string command)
         {
+            command = command.TrimStart().TrimEnd();
+
             Logger.I.To(this, $"Новая команда:{command}, current state:{_currentState}");
 
             lock (StateInformation.Locker)
@@ -114,6 +125,10 @@ namespace Zealot.manager
                     {
                         i_setState.To(State.DELETE_ADDRESS);
                     }
+                    else if (command == "delete addresses")
+                    {
+                        i_setState.To(State.DELETE_ADDRESSES);
+                    }
                     else if (IPAddress.TryParse(command, out IPAddress ip))
                     {
                         if (_currentState == State.DELETE_ADDRESS)
@@ -127,6 +142,32 @@ namespace Zealot.manager
                             Logger.I.To(this, $"Добавлен новый адрес {ip.ToString()}");
 
                             i_addAddress.To(ip.ToString());
+                        }
+                        else if (_currentState == State.DELETE_ADDRESSES)
+                        {
+                            if (_startDiopozoneBuffer != "")
+                                Logger.S_E.To(this, $"На момент получение начала диопозона " +
+                                    $"буффер хронящий временое значение начала диопозона не был пустым.");
+
+                            _startDiopozoneBuffer = ip.ToString();
+
+                            Logger.I.To(this, $"Получено начало диопозона {_startDiopozoneBuffer}.");
+
+                            i_setState.To(State.INPUT_END_DELETE_ADDRESSES);
+                        }
+                        else if (_currentState == State.INPUT_END_DELETE_ADDRESSES)
+                        {
+                            if (_startDiopozoneBuffer == "")
+                                Logger.S_E.To(this, $"На момент получение конца диопозона " +
+                                    $"буффер хронящий временое значение начала диопозона был пустым.");
+
+                            Logger.I.To(this, $"Получен конец диопозона {ip.ToString()}.");
+
+                            i_deleteDiopozoneOfAddresses.To(_startDiopozoneBuffer, ip.ToString());
+
+                            _startDiopozoneBuffer = "";
+
+                            i_setState.To(State.WAIT_COMMAND);
                         }
                         else if (_currentState == State.ADD_ADDRESSES)
                         {
@@ -150,17 +191,14 @@ namespace Zealot.manager
 
                             i_addDiopozoneOfAddresses.To(_startDiopozoneBuffer, ip.ToString());
 
-                            i_setState.To(State.WAIT_COMMAND);
-
                             _startDiopozoneBuffer = "";
+
+                            i_setState.To(State.WAIT_COMMAND);
                         }
-                        else Logger.W.To(this, $"Ввод ip адреса должен быть в контексте с командой.");
+                        else i_setState.To(State.WAIT_COMMAND);
+                        //else Logger.W.To(this, $"Ввод ip адреса должен быть в контексте с командой.");
                     }
-                    else if (command == "")
-                    {
-                        ReadLine.Input();
-                    }
-                    else
+                    else if (command == "info")
                     {
                         SystemInformation($"Доступные операции для {NAME}:\n" +
                             $"1)add address - добавить новый аддресс для сканирования(add address 192.168.0.1).\n" +
@@ -169,6 +207,19 @@ namespace Zealot.manager
                                 ConsoleColor.Yellow);
 
                         ReadLine.Input();
+                    }
+                    else
+                    {
+                        if (_currentState == State.INPUT_END_DELETE_ADDRESSES || 
+                            _currentState == State.INPUT_END_ADD_ADDRESSES)
+                        {
+                            Logger.I.To(this, $"Ввод диопазона адрессов был прерван," + 
+                                $" очитим буффер хранящий начало диопазона {_startDiopozoneBuffer}");
+
+                            _startDiopozoneBuffer = "";
+                        }
+
+                        i_setState.To(State.WAIT_COMMAND);
                     }
                 }
                 else Logger.CommandStateException.To(this, command, "Start", StateInformation.GetString());
@@ -185,21 +236,26 @@ namespace Zealot.manager
                 {
                     _isStart = true;
 
-                    foreach (string address in _scanAddresses)
+                    string[] buffer;
+                    lock (StateInformation.Locker)
+                        buffer = _scanAddresses.ToArray();
+
+                    for (int i = 0; i < buffer.Length; i++)
                     {
                         if (_isStart && StateInformation.IsStart)
                         {
-                            Console("SCAN");
-                            sleep(100);
+                            obj<NetRequest>(buffer[i], buffer[i]);
                         }
                         else
                         {
                             SystemInformation("stop scan", ConsoleColor.Yellow);
+
                             return;
                         }
                     }
 
                     _isStart = false;
+
                     ReadLine.Input();
                 }
 
@@ -244,6 +300,8 @@ namespace Zealot.manager
                                     Logger.I.To(this, info);
 
                                     m = true;
+
+                                    break;
                                 }
                                 else
                                 {
@@ -258,15 +316,43 @@ namespace Zealot.manager
 
                         if (m)
                         {
-                            _scanAddresses.Remove(address);
                             _addresses.Remove(address);
+
+                            // Проверим есть ли этот адресс где либо в диопозоне аддрессов.
+                            bool y = false;
+                            foreach (string[] ad in _diopozoneAddressesList.Values)
+                            {
+                                if (y) break;
+
+                                for(int i = 0; i < ad.Length; i++)
+                                {
+                                    if (address == ad[i])
+                                    {
+                                        y = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (y)
+                            {
+                                Logger.S_I.To(this, $"Данный адреес {address} испозуется также в диопозоне " + 
+                                    $"поэтому его не нужно удалять из коллекции _scanAddress.");
+                            }
+                            else 
+                            {
+                                Logger.S_I.To(this, $"Данный адреес {address} не используется ни одним диопозоном " + 
+                                    $"поэтому его не можно удалять из коллекции _scanAddress.");
+
+                                _scanAddresses.Remove(address);
+                            }
 
                             foreach (string t in _scanAddresses)
                             {
                                 if (t == address)
                                 {
                                     Logger.S_E.To(this, $"Вы удалили адресс [{address}], но он попрежнему " +
-                                        "остался в колекции [_scanAddresses]  в скорее всего он был продублирован.");
+                                        "остался в колекции [_scanAddresses] скорее всего он был продублирован.");
 
                                     destroy();
 
@@ -306,6 +392,8 @@ namespace Zealot.manager
                             if (a == address)
                             {
                                 Logger.W.To(this, $"Вы попытались дважды добавить ip {address}.");
+
+                                i_setState.To(State.WAIT_COMMAND);
 
                                 return;
                             }
@@ -390,6 +478,150 @@ namespace Zealot.manager
                 }
             });
 
+            input_to(ref i_deleteDiopozoneOfAddresses, Header.Events.SCAN_DEVICES, (firstAddress, lastAddress) =>
+            {
+                List<string> m = Address.GetAddresses(new Address.Values()
+                {
+                    DiopozonesOfAddresses = new Address.DiopozoneOfAddresses[1]
+                    {
+                        new Address.DiopozoneOfAddresses(firstAddress, lastAddress)
+                    }
+                });
+
+                lock (StateInformation.Locker)
+                {
+                    if (StateInformation.IsStart)
+                    {
+                        // Был найден.
+                        bool isEmpty = true;
+                        foreach (string[] k in _diopozoneAddresses)
+                        {
+                            if (k[0] == firstAddress && k[1] == lastAddress)
+                            {
+                                Logger.I.To(this, $"Искомый диопозон адрессов");
+
+                                isEmpty = false;
+                            }
+                        }
+
+                        if (isEmpty)
+                        {
+                            Logger.I.To(this, $"Попытка удалить несущесвующий диопазон адрессов " +
+                                $"{firstAddress}-{lastAddress}");
+
+                            return;
+                        }
+
+                        int countRemove =_diopozoneAddresses.RemoveAll((r) => 
+                        {
+                            return (r[0] == firstAddress && r[1] == lastAddress);
+                        });
+
+                        if (countRemove == 1)
+                        {
+                            Logger.S_I.To(this, $"Диопозон аддрессов {firstAddress}-{lastAddress}" +
+                                $"был удален из коллекции _diopozoneAddresses.");
+                        }
+                        else 
+                        {
+                            Logger.S_E.To(this, $"Не удалось удалить диопозон аддресов из _diopozoneAddresses " + 
+                                $" {firstAddress}-{lastAddress}. Такой диопозон должен быть лишь один, но их {countRemove}.");
+
+                            destroy();
+
+                            return;
+                        }
+
+
+                        if (_diopozoneAddressesList.Remove($"{firstAddress}-{lastAddress}"))
+                        {
+                            Logger.S_I.To(this, $"Диопазон аддрессов {firstAddress}-{lastAddress} был удален из словаря" + 
+                                $" _diopozoneAddressesList.");
+                        }
+                        else 
+                        {
+                            Logger.S_E.To(this, $"Диопазон аддрессов {firstAddress}-{lastAddress} не удалось удалить из словаря" + 
+                                $" _diopozoneAddressesList, так как его там нету.");
+
+                            destroy();
+
+                            return;
+                        }
+
+
+                        List<string> buffer = new List<string>();
+                        // Берем все адресса из данного диопозона.
+                        foreach (string s in m)
+                        {
+                            Logger.S_I.To(this, $"Решаем нужно ли удалить адрес {s} удаляемого диопазона " +
+                                $"адрессов {firstAddress}-{lastAddress} из коллекции _scanAddresses");
+
+                            // Сравниваем с адрессами сканирования
+                            // И если есть совподения, то записываем текущий адресс
+                            // на удаление, за исключением адрессов котороые
+                            foreach (string t in _scanAddresses)
+                            {
+                                // Адресс найден.
+                                if (s == t)
+                                {
+                                    // Теперь проверим если ли данный адресс в 
+                                    // коллескии _addresses
+                                    bool g = true;
+                                    foreach (string b in _addresses)
+                                    {
+                                        // Данный аддресс остается в коллекции _scanAddresses
+                                        if (s == b)
+                                        {
+                                            g = false;
+
+                                            break;
+                                        }
+                                    }
+
+                                    // Если true значить данный адресс не был найден и его 
+                                    // нужно удалить.
+                                    if (g)
+                                    {
+                                        Logger.S_I.To(this, $"Адресс {s} из диопозона [{firstAddress}-{lastAddress}]" +
+                                            $"записан в буффер для дальнейшего удаления.");
+
+                                        buffer.Add(s);
+                                    }
+                                    else
+                                    {
+                                        Logger.S_I.To(this, $"Адресс {s} остается в коллекции, " +
+                                            $"так как этот адрес так же находится в коллекции _addresses.");
+                                    }
+
+                                    break;
+                                }
+                            }
+                        }
+
+                        foreach (string u in buffer)
+                        {
+                            Logger.S_I.To(this, $"Удаляем из коллекции _scanAddresses адрес [{u}]");
+
+                            _scanAddresses.Remove(u);
+                        }
+
+                        if (MongoDB.TryDeleteOne(DB.NAME, DB.AddressCollection.NAME,
+                            BsonDocumentType.DIOPOZONE_ADDRESSES, $"{firstAddress}-{lastAddress}", out string info))
+                        {
+                            Logger.I.To(this, info);
+                        }
+                        else
+                        {
+                            Logger.S_E.To(this, info);
+
+                            destroy();
+
+                            return;
+                        }
+                    }
+                }
+            });
+
             input_to(ref i_addDiopozoneOfAddresses, Header.Events.SCAN_DEVICES, (firstAddress, lastAddress) =>
             {
                 List<string> m = Address.GetAddresses(new Address.Values()
@@ -400,51 +632,56 @@ namespace Zealot.manager
                     }
                 });
 
-                if (StateInformation.IsStart)
+                lock (StateInformation.Locker)
                 {
-                    _diopozoneAddresses.Add(new string[] { firstAddress, lastAddress });
-
-                    foreach (string s in m)
+                    if (StateInformation.IsStart)
                     {
-                        // Совподений нету.
-                        bool result = true;
-                        foreach (string t in _scanAddresses)
+                        _diopozoneAddresses.Add(new string[] { firstAddress, lastAddress });
+                        _diopozoneAddressesList.Add(
+                                $"{firstAddress}-{lastAddress}", m.ToArray());
+
+                        foreach (string s in m)
                         {
-                            if (t == s)
+                            // Совподений нету.
+                            bool result = true;
+                            foreach (string t in _scanAddresses)
                             {
-                                Logger.W.To(this, $"Вы попытались дважды добавить ip {s}.");
+                                if (t == s)
+                                {
+                                    Logger.W.To(this, $"Вы попытались дважды добавить ip {s}.");
 
-                                result = false;
+                                    result = false;
 
-                                break;
+                                    break;
+                                }
                             }
+
+                            Logger.I.To(this, $"Вы добавили новый ip для скана:{s}");
+
+                            if (result) _scanAddresses.Add(s);
                         }
 
-                        Logger.I.To(this, $"Вы добавили новый ip для скана:{s}");
-
-                        if (result) _scanAddresses.Add(s);
-                    }
-
-                    // Затем данное значение передадим в базу данных.
-                    if (MongoDB.TryInsertOne(DB.NAME, DB.AddressCollection.NAME,
-                        out string info, new BsonDocument()
+                        // Затем данное значение передадим в базу данных.
+                        if (MongoDB.TryInsertOne(DB.NAME, DB.AddressCollection.NAME,
+                            out string info, new BsonDocument()
+                            {
+                                { BsonDocumentType.HEADER, BsonDocumentType.DIOPOZONE_ADDRESSES},
+                                { BsonDocumentType.DIOPOZONE_ADDRESSES, $"{firstAddress}-{lastAddress}" }
+                            }))
                         {
-                            { BsonDocumentType.HEADER, BsonDocumentType.DIOPOZONE_ADDRESSES},
-                            { BsonDocumentType.DIOPOZONE_ADDRESSES, $"{firstAddress}-{lastAddress}" }
-                        }))
-                    {
-                        Logger.S_I.To(this, info);
-                    }
-                    else
-                    {
-                        Logger.S_E.To(this, info);
+                            Logger.S_I.To(this, info);
+                        }
+                        else
+                        {
+                            Logger.S_E.To(this, info);
 
-                        destroy();
+                            destroy();
 
-                        return;
+                            return;
+                        }
                     }
+                    else Logger.Ws.To(this, $"Не удалось добавить ip адресса для скана:", m);
                 }
-                else Logger.Ws.To(this, $"Не удалось добавить ip адресса для скана:", m);
             });
 
             input_to(ref i_setState, Header.Events.SYSTEM, (nextState) =>
@@ -463,41 +700,28 @@ namespace Zealot.manager
                         ))
                         {
                             Logger.I.To(this, $"State:{_currentState}->{nextState}");
+
                             _currentState = nextState;
 
                             if (nextState == State.ADD_ADDRESS || nextState == State.DELETE_ADDRESS)
                                 ReadLine.Input(NAME, "Введите адрес:");
-                            else if (nextState == State.ADD_ADDRESSES)
+                            else if (nextState == State.ADD_ADDRESSES || nextState == State.DELETE_ADDRESSES)
                                 ReadLine.Input(NAME, "Введите начало диапозона адресов:");
                             else
                                 ReadLine.Input();
                         }
-                        else Logger.S_E.To(this, $"Сменить состояние выполнения команды c " +
-                            $"{State.WAIT_COMMAND} можно только на:" +
-                            $"\n1){State.ADD_ADDRESS}" +
-                            $"\n2){State.ADD_ADDRESSES}" +
-                            $"\n3){State.DELETE_ADDRESS}" +
-                            $"\n4){State.DELETE_ADDRESSES}" +
-                            $",но вы попытались сменить на {nextState}.");
-                    }
-                    else if (hellper.State.Contains(nextState, new string[]
-                    {
-                        // State.INPUT_ADD_ADDRESS, State.INPUT_DELETE_ADDRESS,
-                        // State.INPUT_ADD_ADDRESSES, State.INPUT_DELETE_ADDRESSES
-                    }
-                    ))
-                    {
-                        if (nextState == State.ADD_ADDRESS)
+                        else
                         {
-                            Logger.I.To(this, $"State:{_currentState}->{nextState}");
-
-                            _currentState = nextState;
+                            Logger.S_E.To(this, $"Сменить состояние выполнения команды c " +
+                                $"{State.WAIT_COMMAND} можно только на:" +
+                                $"\n1){State.ADD_ADDRESS}" +
+                                $"\n2){State.ADD_ADDRESSES}" +
+                                $"\n3){State.DELETE_ADDRESS}" +
+                                $"\n4){State.DELETE_ADDRESSES}" +
+                                $",но вы попытались сменить на {nextState}.");
 
                             ReadLine.Input();
                         }
-                        else Logger.S_E.To(this, $"Сменить состояние выполнения команды на " +
-                            $"{State.ADD_ADDRESS} можно только c:" +
-                            $"\n4){State.WAIT_COMMAND}, вы попытались сменить c {nextState}.");
                     }
                     else if (_currentState == State.INPUT_END_ADD_ADDRESSES)
                     {
@@ -510,6 +734,20 @@ namespace Zealot.manager
                             ReadLine.Input();
                         }
                         else Logger.S_E.To(this, $"С [{State.INPUT_END_ADD_ADDRESSES}] можно " +
+                            $" перейти только в состояние [{State.WAIT_COMMAND}]. " +
+                            $"Но вы попытались перейти в состояние {nextState}.");
+                    }
+                    else if (_currentState == State.INPUT_END_DELETE_ADDRESSES)
+                    {
+                        if (nextState == State.WAIT_COMMAND)
+                        {
+                            Logger.I.To(this, $"State:{_currentState}->{nextState}");
+
+                            _currentState = State.WAIT_COMMAND;
+
+                            ReadLine.Input();
+                        }
+                        else Logger.S_E.To(this, $"С [{State.INPUT_END_DELETE_ADDRESSES}] можно " +
                             $" перейти только в состояние [{State.WAIT_COMMAND}]. " +
                             $"Но вы попытались перейти в состояние {nextState}.");
                     }
@@ -535,7 +773,7 @@ namespace Zealot.manager
 
                             _currentState = State.INPUT_END_ADD_ADDRESSES;
 
-                            ReadLine.Input(NAME, "Введите конец диопозона.");
+                            ReadLine.Input(NAME, "Введите конец диопозона:");
                         }
                         else Logger.S_E.To(this, $"Вы пытаетесь сменить состояние c [{State.ADD_ADDRESSES}] " +
                             $"на [{nextState}. Но ожидается что вы смените на [{State.INPUT_END_ADD_ADDRESSES}].");
@@ -546,7 +784,7 @@ namespace Zealot.manager
                         {
                             Logger.I.To(this, $"State:{_currentState}->{nextState}");
 
-                            _currentState = nextState;
+                            _currentState = State.WAIT_COMMAND;
 
                             ReadLine.Input();
                         }
@@ -556,15 +794,22 @@ namespace Zealot.manager
                     }
                     else if (_currentState == State.DELETE_ADDRESSES)
                     {
-                        if (nextState == State.INPUT_DELETE_ADDRESSES)
+                        if (nextState == State.INPUT_END_DELETE_ADDRESSES)
                         {
                             Logger.I.To(this, $"State:{_currentState}->{nextState}");
 
                             _currentState = nextState;
+
+                            ReadLine.Input(NAME, "Введите конец диопозона:");
                         }
                         else Logger.S_E.To(this, $"Произвести смену состояния ввода на {State.DELETE_ADDRESSES}" +
-                            $"можно только из состояния {State.INPUT_DELETE_ADDRESSES}. Была произведена попытка смены " +
+                            $"можно только из состояния {State.INPUT_END_DELETE_ADDRESSES}. Была произведена попытка смены " +
                             $" на {nextState}.");
+                    }
+                    else if (nextState == State.WAIT_COMMAND)
+                    {
+                        Logger.I.To(this, $"Вы передали в nextState [{State.WAIT_COMMAND}], значит что то пошло нетак, " +
+                            $"с точки зрения логически пользовательской последовательности. Текущее состояние {_currentState}.");
                     }
                     else
                     {
@@ -710,14 +955,20 @@ namespace Zealot.manager
 
                                         foreach (string t in diopozoneAddresses)
                                         {
-                                            foreach (string r in _addresses)
+                                            bool f = true;
+                                            foreach (string r in _scanAddresses)
                                             {
-                                                if (r == t) break;
+                                                if (r == t) 
+                                                {
+                                                    f = false;
+                                                    break;
+                                                }
                                             }
 
-                                            _scanAddresses.Add(t);
+                                            if (f) _scanAddresses.Add(t);
                                         }
 
+                                        _diopozoneAddressesList.Add(a, resultConvert);
                                         _diopozoneAddresses.Add(resultConvert);
                                     }
                                     else
@@ -768,8 +1019,8 @@ namespace Zealot.manager
             public const string ADD_ADDRESSES = "Дабавить новые адресса";
             public const string INPUT_START_ADD_ADDRESSES = "Ввод новых адресов, начальный диапозон.";
             public const string INPUT_END_ADD_ADDRESSES = "Ввод новых адресов, конец диапозона включительно.";
+            public const string INPUT_END_DELETE_ADDRESSES = "Ввод удоляемых адрессов, конец диапозона включительно";
             public const string DELETE_ADDRESSES = "Удалить адресса";
-            public const string INPUT_DELETE_ADDRESSES = "Ввод удаляемых адрессов";
 
             public const string SHOW_ADDRESSES = "Проказать адресса для скана";
         }

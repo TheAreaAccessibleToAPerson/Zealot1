@@ -28,3 +28,4 @@
 /home/dmitry/Документы/Projects/Zealot/bin/Debug/net8.0/runtimes/win/native/mongocrypt.dll
 /home/dmitry/Документы/Projects/Zealot/obj/Debug/net8.0/Zealot.csproj.AssemblyReference.cache
 /home/dmitry/Документы/Projects/Zealot/obj/Debug/net8.0/Zealot.csproj.CopyComplete
+/home/dmitry/Документы/Projects/Zealot/obj/Debug/net8.0/Zealot.sourcelink.json

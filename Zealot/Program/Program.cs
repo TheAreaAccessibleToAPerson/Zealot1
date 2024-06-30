@@ -1,21 +1,21 @@
 using Butterfly;
-using Zealot.manager;
 
 namespace Zealot
 {
     public sealed class Program : Controller, ReadLine.IInformation
     {
-        ScanerDevices _scanerDevices;
+        manager.ScanerDevices _scanerDevices;
 
         void Construction()
         {
+            obj<manager.Devices>(manager.Devices.NAME);
         }
 
         void Start()
         {
             Logger.S_I.To(this, "starting ...");
             {
-                _scanerDevices = obj<ScanerDevices>(ScanerDevices.NAME);
+                _scanerDevices = obj<manager.ScanerDevices>(manager.ScanerDevices.NAME);
 
                 ReadLine.Start(this);
             }
