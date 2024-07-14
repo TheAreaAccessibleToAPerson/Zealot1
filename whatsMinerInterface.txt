@@ -1,0 +1,1 @@
+[{"rx_bytes":1954972531,"ifname":"eth0","tx_bytes":504442201,"ipaddrs":["10.90.26.201\/20"],"gwaddr":"10.90.16.1","tx_packets":1727478,"dnsaddrs":["10.90.16.1"],"rx_packets":31441694,"proto":"dhcp","id":"lan","ip6addrs":[],"uptime":600055,"subdevices":[],"is_up":true,"macaddr":"CA:0A:18:00:4D:E8","type":"ethernet","name":"eth0"}]

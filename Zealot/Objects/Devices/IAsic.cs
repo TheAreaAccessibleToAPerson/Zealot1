@@ -15,7 +15,7 @@ namespace Zealot
         public string GetNormalHashrate();
 
 
-        public string GetHashrate();
+        public float GetHashrate();
 
         public bool TryRestart(out string info);
 
