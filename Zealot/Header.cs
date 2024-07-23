@@ -40,6 +40,19 @@ namespace Zealot
             /// </summary>
             public const string EXTRACT_FROM_RESULT_REQUEST_DEVICES_INFORMATION = "ExtractFromResultRequestDevicesInformation";
             public const int EXTRACT_FROM_RESULT_REQUEST_DEVICES_INFORMATION_TIME_DELAY = 5;
+
+            /// <summary>
+            /// Прослушивает новых клинтов, переподключает их, прослушивает сообщения от них.
+            /// Работает с коллекциями клинтов.
+            /// </summary> <summary>
+            public const string LISTEN_CLIENT = "ListenClient";
+            public const int LISTEN_CLIENT_TIME_DELAY = 5;
+
+            /// <summary>
+            /// Отправляет сообщение клиeнтам.
+            /// </summary> 
+            public const string SEND_MESSAGE_TO_CLIENT = "SendMessageToClient";
+            public const int SEND_MESSAGE_TO_CLIENT_TIME_DELAY = 5;
         }
 
         private readonly WritingText _writingText = new WritingText();
@@ -49,6 +62,8 @@ namespace Zealot
             listen_events(Events.SYSTEM, Events.SYSTEM);
             listen_events(Events.LOGGER, Events.LOGGER);
             listen_events(Events.MONGO_DB, Events.MONGO_DB);
+            listen_events(Events.LISTEN_CLIENT, Events.LISTEN_CLIENT);
+            listen_events(Events.SEND_MESSAGE_TO_CLIENT, Events.SEND_MESSAGE_TO_CLIENT);
             listen_events(Events.SCAN_DEVICES, Events.SCAN_DEVICES);
             listen_events(Events.WORK_DEVICE, Events.WORK_DEVICE);
             listen_events(Events.REQUEST_DEVICES_INFORMATION, Events.REQUEST_DEVICES_INFORMATION);

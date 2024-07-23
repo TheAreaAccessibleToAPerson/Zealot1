@@ -1,5 +1,5 @@
-using System.Net;
 using Butterfly;
+using System.Net;
 using Zealot.hellper;
 using MongoDB.Bson;
 
@@ -210,10 +210,10 @@ namespace Zealot.manager
                     }
                     else
                     {
-                        if (_currentState == State.INPUT_END_DELETE_ADDRESSES || 
+                        if (_currentState == State.INPUT_END_DELETE_ADDRESSES ||
                             _currentState == State.INPUT_END_ADD_ADDRESSES)
                         {
-                            Logger.I.To(this, $"Ввод диопазона адрессов был прерван," + 
+                            Logger.I.To(this, $"Ввод диопазона адрессов был прерван," +
                                 $" очитим буффер хранящий начало диопазона {_startDiopozoneBuffer}");
 
                             _startDiopozoneBuffer = "";
@@ -226,15 +226,56 @@ namespace Zealot.manager
             }
         }
 
+        IInput i_runUpdate;
+        IInput i_stoppingUpdate;
+        bool _isUpdate;
+
         void Construction()
         {
-            input_to(ref i_start, Header.Events.SCAN_DEVICES, () =>
+            add_event(Header.Events.SCAN_DEVICES, 60000, () =>
             {
-                SystemInformation("start scan", ConsoleColor.Green);
-
-                if (_isStart == false)
+                if (_isUpdate && _isStart == false)
                 {
-                    _isStart = true;
+                    i_start.To();
+                }
+            });
+
+            input_to(ref i_runUpdate, Header.Events.SCAN_DEVICES, () =>
+            {
+                lock (StateInformation.Locker)
+                {
+                    if (!StateInformation.IsDestroy && StateInformation.IsStart)
+                    {
+                        if (_isStart == false && _isUpdate == false)
+                        {
+                            Logger.I.To(this, "Получена комманда на начало скана сети.");
+
+                            _isUpdate = true;
+                        }
+                    }
+                }
+            });
+
+            input_to_0_1<string>(ref i_start, Header.Events.SCAN_DEVICES, (@return) =>
+            {
+                lock (StateInformation.Locker)
+                {
+                    if (!StateInformation.IsDestroy && StateInformation.IsStart)
+                    {
+                        if (_isStart == false)
+                        {
+                            Logger.I.To(this, "Получена комманда на начало скана сети.");
+
+                            _isStart = true;
+
+                            @return.To(NAME);
+                        }
+                    }
+                }
+            }).send_echo_to<string[]>(Devices.BUS.GET_ADDRESSES_CONNECTION_DEVICES)
+                .output_to((connectionAddresses) =>
+                {
+                    SystemInformation("start scan", ConsoleColor.Green);
 
                     string[] buffer;
                     lock (StateInformation.Locker)
@@ -242,6 +283,20 @@ namespace Zealot.manager
 
                     for (int i = 0; i < buffer.Length; i++)
                     {
+                        bool isConnection = false;
+                        {
+                            for (int u = 0; u < connectionAddresses.Length; u++)
+                            {
+                                if (connectionAddresses[u] == buffer[i])
+                                {
+                                    // Данное устройсво уже обрабатывается.
+                                    isConnection = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (isConnection) break;
+
                         if (_isStart && StateInformation.IsStart)
                         {
                             obj<NetRequest>(buffer[i], buffer[i]);
@@ -257,10 +312,9 @@ namespace Zealot.manager
                     _isStart = false;
 
                     ReadLine.Input();
-                }
 
-                SystemInformation("end scan", ConsoleColor.Green);
-            });
+                },
+                Header.Events.SCAN_DEVICES);
 
             input_to(ref i_showAddresses, Header.Events.SCAN_DEVICES, () =>
             {
@@ -324,7 +378,7 @@ namespace Zealot.manager
                             {
                                 if (y) break;
 
-                                for(int i = 0; i < ad.Length; i++)
+                                for (int i = 0; i < ad.Length; i++)
                                 {
                                     if (address == ad[i])
                                     {
@@ -336,12 +390,12 @@ namespace Zealot.manager
 
                             if (y)
                             {
-                                Logger.S_I.To(this, $"Данный адреес {address} испозуется также в диопозоне " + 
+                                Logger.S_I.To(this, $"Данный адреес {address} испозуется также в диопозоне " +
                                     $"поэтому его не нужно удалять из коллекции _scanAddress.");
                             }
-                            else 
+                            else
                             {
-                                Logger.S_I.To(this, $"Данный адреес {address} не используется ни одним диопозоном " + 
+                                Logger.S_I.To(this, $"Данный адреес {address} не используется ни одним диопозоном " +
                                     $"поэтому его не можно удалять из коллекции _scanAddress.");
 
                                 _scanAddresses.Remove(address);
@@ -512,7 +566,7 @@ namespace Zealot.manager
                             return;
                         }
 
-                        int countRemove =_diopozoneAddresses.RemoveAll((r) => 
+                        int countRemove = _diopozoneAddresses.RemoveAll((r) =>
                         {
                             return (r[0] == firstAddress && r[1] == lastAddress);
                         });
@@ -522,9 +576,9 @@ namespace Zealot.manager
                             Logger.S_I.To(this, $"Диопозон аддрессов {firstAddress}-{lastAddress}" +
                                 $"был удален из коллекции _diopozoneAddresses.");
                         }
-                        else 
+                        else
                         {
-                            Logger.S_E.To(this, $"Не удалось удалить диопозон аддресов из _diopozoneAddresses " + 
+                            Logger.S_E.To(this, $"Не удалось удалить диопозон аддресов из _diopozoneAddresses " +
                                 $" {firstAddress}-{lastAddress}. Такой диопозон должен быть лишь один, но их {countRemove}.");
 
                             destroy();
@@ -535,12 +589,12 @@ namespace Zealot.manager
 
                         if (_diopozoneAddressesList.Remove($"{firstAddress}-{lastAddress}"))
                         {
-                            Logger.S_I.To(this, $"Диопазон аддрессов {firstAddress}-{lastAddress} был удален из словаря" + 
+                            Logger.S_I.To(this, $"Диопазон аддрессов {firstAddress}-{lastAddress} был удален из словаря" +
                                 $" _diopozoneAddressesList.");
                         }
-                        else 
+                        else
                         {
-                            Logger.S_E.To(this, $"Диопазон аддрессов {firstAddress}-{lastAddress} не удалось удалить из словаря" + 
+                            Logger.S_E.To(this, $"Диопазон аддрессов {firstAddress}-{lastAddress} не удалось удалить из словаря" +
                                 $" _diopozoneAddressesList, так как его там нету.");
 
                             destroy();
@@ -958,7 +1012,7 @@ namespace Zealot.manager
                                             bool f = true;
                                             foreach (string r in _scanAddresses)
                                             {
-                                                if (r == t) 
+                                                if (r == t)
                                                 {
                                                     f = false;
                                                     break;

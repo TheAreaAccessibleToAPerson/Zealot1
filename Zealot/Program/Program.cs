@@ -8,7 +8,7 @@ namespace Zealot
 
         void Construction()
         {
-            obj<manager.Devices>(manager.Devices.NAME);
+            obj<manager.Clients>(manager.Clients.NAME);
         }
 
         void Start()
@@ -42,7 +42,10 @@ namespace Zealot
         {
             Logger.S_I.To(this, "stopping ...");
             {
-                ReadLine.Stop(this);
+                if (StateInformation.IsStart)
+                {
+                    ReadLine.Stop(this);
+                }
             }
             Logger.S_I.To(this, "stop");
         }

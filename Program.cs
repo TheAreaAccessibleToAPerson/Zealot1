@@ -1,6 +1,4 @@
 ﻿using System.Text.Json;
-using MongoDB.Driver;
-using ZstdSharp.Unsafe;
 
 namespace Butterfly
 {
@@ -8,7 +6,7 @@ namespace Butterfly
     {
         public static void Main(string[] args)
         {
-            //Result.Initialize();
+            //Result1.Initialize();
 
             Butterfly.fly<Zealot.Header>(new Butterfly.Settings()
             {
@@ -28,8 +26,14 @@ namespace Butterfly
                     new EventSetting(Zealot.Header.Events.WORK_DEVICE,
                         Zealot.Header.Events.WORK_DEVICE_TIME_DELAY),
 
+                    new EventSetting(Zealot.Header.Events.LISTEN_CLIENT,
+                        Zealot.Header.Events.LISTEN_CLIENT_TIME_DELAY),
+
+                    new EventSetting(Zealot.Header.Events.SEND_MESSAGE_TO_CLIENT,
+                        Zealot.Header.Events.SEND_MESSAGE_TO_CLIENT_TIME_DELAY),
+
                     new EventSetting(Zealot.Header.Events.SCAN_DEVICES,
-                        Zealot.Header.Events.SCAN_DEVICES_TIME_DELAY),
+                        Zealot.Header.Events.SCAN_DEVICES_TIME_DELAY, 20000),
 
                     new EventSetting(Zealot.Header.Events.REQUEST_DEVICES_INFORMATION,
                         Zealot.Header.Events.REQUEST_DEVICES_INFORMATION_TIME_DELAY),
@@ -41,7 +45,7 @@ namespace Butterfly
         }
     }
 
-    public static class Result
+    public static class Result1
     {
         private static Dictionary<string, string> dic = new();
 
@@ -74,17 +78,15 @@ namespace Butterfly
 
         public static void Reiceve(string address, string mac)
         {
-            List<WhatsMinerInterface> i = JsonSerializer.Deserialize<List<WhatsMinerInterface>>(mac);
-
-            if (dic.ContainsKey(i[0].macaddr))
+            if (dic.ContainsKey(mac))
             {
                 lock (locker)
                 {
-                    Console.WriteLine($"{current_count})MAC:{i[0].macaddr} ip:{address}");
+                    Console.WriteLine($"{current_count})MAC:{mac} ip:{address}");
                     current_count++;
-                    dic[i[0].macaddr] = address;
+                    dic[mac] = address;
 
-                    if (current_count == 25)
+                    if (current_count == 12)
                     {
                         Console.WriteLine("Все маки собраны.");
 

@@ -1,3 +1,5 @@
+using Zealot.device;
+
 namespace Zealot
 {
     public interface IDevice 
@@ -6,11 +8,6 @@ namespace Zealot
         /// Влючено ли данное устройсво.
         /// </summary>
         public bool IsOnline();
-
-        /// <summary>
-        /// Работает ли данное устройвтво(оно может перезагружаться)
-        /// </summary>
-        public string IsRunning();
 
         public string GetNormalHashrate();
 
@@ -28,6 +25,8 @@ namespace Zealot
         /// <returns></returns>
         public string GetMAC();
         public void SetMAC();
+
+        public string GetAddress();
 
         /// <summary>
         /// Модель. 
@@ -90,5 +89,13 @@ namespace Zealot
 
         public string GetPassword3();
         public void SetPassword3();
+
+        public string GetJsonString();
+        public byte[] GetJsonBytes();
+
+        public AsicStatus GetStatus();
+
+        // Причина внешнего удаления.
+        public void Destroy(string destroyInfo);
     }
 }
