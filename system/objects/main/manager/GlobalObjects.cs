@@ -117,7 +117,7 @@ namespace Butterfly.system.objects.main.manager
 
         public GlobalObjectType Add<GlobalObjectType>(string key, GlobalObjectType value)
         {
-            if (_stateInformation.IsContruction)
+            //if (_stateInformation.IsContruction)
             {
                 if (_values.TryGetValue(key, out object globalObject))
                 {
@@ -163,8 +163,8 @@ namespace Butterfly.system.objects.main.manager
                     return value;
                 }
             }
-            else Exception($"Вы можете добавить глобальный обьект" +
-                $"глобальный обьект {key} только в методе Contruction().");
+            //else Exception($"Вы можете добавить глобальный обьект" +
+            //    $"глобальный обьект {key} только в методе Contruction().");
 
             return default;
         }

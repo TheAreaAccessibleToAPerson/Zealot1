@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using Butterfly;
 
 namespace Zealot.manager
@@ -35,7 +34,7 @@ namespace Zealot.manager
                     var result = System.Text.Encoding.Default.GetString(value);
 
                     foreach (Client client in _clients.Values)
-                        if (client.IsAdmin()) client.I_sendBytesMessage.To(value);
+                        if (client.IsAdmin()) client.I_sendSSLBytesMessage.To(value);
                 },
                 Header.Events.LISTEN_CLIENT);
 
@@ -46,13 +45,13 @@ namespace Zealot.manager
             listen_message<byte[]>(BUS.ADMIN_LISTEN_JSON_ASICS)
                 .output_to((json) =>
                 {
-                    byte[] message = ServerMessage.GetMessageArray(ServerMessage.Type.ADD_NEW_SCAN_ASIC, json);
+                    byte[] message = ServerMessage.GetMessageArray(ServerMessage.TCPType.ADD_NEW_SCAN_ASIC, json);
 
                     foreach (Client client in _clients.Values)
                     {
                         if (client.IsAdmin())
                         {
-                            client.I_sendBytesMessage.To(message);
+                            client.I_sendSSLBytesMessage.To(message);
                         }
                     }
                 },
@@ -133,7 +132,7 @@ namespace Zealot.manager
             public const int MESSAGE_LENGTH_4BYTE_INDEX = 6;
         }
 
-        public struct Type
+        public struct TCPType
         {
             /// <summary>
             /// Добавить новый отсканированый асик.
@@ -145,68 +144,33 @@ namespace Zealot.manager
             /// </summary> <summary>
             public const int ADD_ALL_ASIC = 1;
         }
-    }
 
-    public sealed class Client : Controller.Board.LocalField<TcpClient>
-    {
-        private bool _isRunning = true;
-
-        public IInput<string> I_sendStringMessage;
-        public IInput<byte[]> I_sendBytesMessage;
-
-        void Construction()
+        public struct SSLType 
         {
-            input_to(ref I_sendStringMessage, Header.Events.SEND_MESSAGE_TO_CLIENT, (message) =>
-            {
-                if (message.Length == 0) return;
+            /// <summary>
+            /// Авторизаци прошла усмешна. 
+            /// </summary> <summary>
+            public const int SUCCSESS_AUTHORIZATION = 0;
 
-                if (_isRunning)
-                {
-                    try
-                    {
-                        byte[] bytes = Encoding.ASCII.GetBytes(message);
+            /// <summary>
+            /// Неверный логин или пароль. 
+            /// </summary>
+            public const int ERROR_AUTHORIZATION = 1;
 
-                        Field.Client.Send(bytes);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.I.To(this, $"{ex}");
+            /// <summary>
+            /// Оправляет данные для установления tcp соединения.
+            /// </summary>
+            public const int TCP_CONNECTION = 2;
 
-                        destroy();
-                    }
-                }
-            });
+            /// <summary>
+            /// Произошла ошибка на этапе оправки порта для tcp соединения.
+            /// </summary> 
+            public const int TCP_CONNECTION_ERROR = 3;
 
-            input_to(ref I_sendBytesMessage, Header.Events.SEND_MESSAGE_TO_CLIENT, (message) =>
-            {
-                if (message.Length == 0) return;
-
-                if (_isRunning)
-                {
-                    try
-                    {
-                        Field.Client.Send(message);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.I.To(this, $"{ex}");
-
-                        destroy();
-                    }
-                }
-            });
-        }
-
-        public bool IsAdmin() => true;
-
-        void Destroyed()
-        {
-            _isRunning = false;
-        }
-
-        public struct Status
-        {
-            public const string ADMIN = "Admin";
+            /// <summary>
+            /// Соединение установлено(Отправляет данные клинта.)
+            /// </summary>
+            public const int CONNECT = 4;
         }
     }
 }

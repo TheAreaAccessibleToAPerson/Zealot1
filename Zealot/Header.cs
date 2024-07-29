@@ -53,6 +53,12 @@ namespace Zealot
             /// </summary> 
             public const string SEND_MESSAGE_TO_CLIENT = "SendMessageToClient";
             public const int SEND_MESSAGE_TO_CLIENT_TIME_DELAY = 5;
+
+            /// <summary>
+            /// Прослушивает сообщения от клинтов.
+            /// </summary> 
+            public const string RECEIVE_MESSAGE_FROM_CLIENT = "ReceiveMessageFromClient";
+            public const int RECEIVE_MESSAGE_FROM_CLIENT_TIME_DELAY = 5;
         }
 
         private readonly WritingText _writingText = new WritingText();
@@ -64,6 +70,7 @@ namespace Zealot
             listen_events(Events.MONGO_DB, Events.MONGO_DB);
             listen_events(Events.LISTEN_CLIENT, Events.LISTEN_CLIENT);
             listen_events(Events.SEND_MESSAGE_TO_CLIENT, Events.SEND_MESSAGE_TO_CLIENT);
+            listen_events(Events.RECEIVE_MESSAGE_FROM_CLIENT, Events.RECEIVE_MESSAGE_FROM_CLIENT);
             listen_events(Events.SCAN_DEVICES, Events.SCAN_DEVICES);
             listen_events(Events.WORK_DEVICE, Events.WORK_DEVICE);
             listen_events(Events.REQUEST_DEVICES_INFORMATION, Events.REQUEST_DEVICES_INFORMATION);

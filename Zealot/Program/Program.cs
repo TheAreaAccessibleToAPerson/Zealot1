@@ -62,7 +62,7 @@ namespace Zealot
                     {
                         Logger.S_I.To(this, startConnectionInfo);
                     }
-                    else 
+                    else
                     {
                         Logger.S_E.To(this, startConnectionInfo);
 
@@ -71,7 +71,7 @@ namespace Zealot
                         return;
                     }
                 }
-                else 
+                else
                 {
                     Logger.S_E.To(this, defineInfo);
 
@@ -89,7 +89,7 @@ namespace Zealot
             {
                 destroy();
             }
-            else 
+            else
             {
                 ReadLine.Input();
             }

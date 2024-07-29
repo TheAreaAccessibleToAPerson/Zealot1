@@ -45,8 +45,8 @@ namespace Zealot.manager.network
         {
             Logger.I.To(this, "start configuration");
             {
-                string address = "10.88.88.5";
-                int port = 5557;
+                string address = Butterfly.Program.ADDRESS;
+                int port = Butterfly.Program.PORT;
 
                 _listener = new TcpListener(new IPEndPoint(IPAddress.Parse(address), port));
 
@@ -98,9 +98,5 @@ namespace Zealot.manager.network
             }
             Logger.I.To(this, "end stopping");
         }
-    }
-
-    internal class TcpSocket
-    {
     }
 }

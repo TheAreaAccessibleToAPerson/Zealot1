@@ -1,9 +1,10 @@
-﻿using System.Text.Json;
-
-namespace Butterfly
+﻿namespace Butterfly
 {
     public sealed class Program
     {
+        public const string ADDRESS = "10.88.87.3";
+        public const int PORT = 5557;
+
         public static void Main(string[] args)
         {
             //Result1.Initialize();
@@ -31,6 +32,9 @@ namespace Butterfly
 
                     new EventSetting(Zealot.Header.Events.SEND_MESSAGE_TO_CLIENT,
                         Zealot.Header.Events.SEND_MESSAGE_TO_CLIENT_TIME_DELAY),
+
+                    new EventSetting(Zealot.Header.Events.RECEIVE_MESSAGE_FROM_CLIENT,
+                        Zealot.Header.Events.RECEIVE_MESSAGE_FROM_CLIENT_TIME_DELAY),
 
                     new EventSetting(Zealot.Header.Events.SCAN_DEVICES,
                         Zealot.Header.Events.SCAN_DEVICES_TIME_DELAY, 20000),
@@ -142,5 +146,11 @@ namespace Butterfly
         public string macaddr { get; set; }
         public string type { get; set; }
         public string name { get; set; }
+    }
+
+    public class PublicPrivateKeypairModel
+    {
+        public string Public { set; get; }
+        public string Private { set; get; }
     }
 }

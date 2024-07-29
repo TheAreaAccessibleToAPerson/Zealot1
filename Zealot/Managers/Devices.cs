@@ -38,7 +38,7 @@ namespace Zealot.manager
                     buffer.Add(device.GetStatus());
                 }
             }
-            return ServerMessage.GetMessageArray(ServerMessage.Type.ADD_ALL_ASIC,
+            return ServerMessage.GetMessageArray(ServerMessage.TCPType.ADD_ALL_ASIC,
                 JsonSerializer.SerializeToUtf8Bytes(buffer));
         }
 
