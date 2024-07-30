@@ -158,19 +158,9 @@ namespace Zealot.manager
             public const int ERROR_AUTHORIZATION = 1;
 
             /// <summary>
-            /// Оправляет данные для установления tcp соединения.
-            /// </summary>
-            public const int TCP_CONNECTION = 2;
-
-            /// <summary>
-            /// Произошла ошибка на этапе оправки порта для tcp соединения.
+            /// Данные клиeнта.
             /// </summary> 
-            public const int TCP_CONNECTION_ERROR = 3;
-
-            /// <summary>
-            /// Соединение установлено(Отправляет данные клинта.)
-            /// </summary>
-            public const int CONNECT = 4;
+            public const int CLIENT_DATA = 2;
         }
     }
 }

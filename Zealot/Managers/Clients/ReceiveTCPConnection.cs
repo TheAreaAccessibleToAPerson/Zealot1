@@ -31,7 +31,7 @@ namespace Zealot.manager
                         while (_listener.Pending())
                         {
                             TcpClient client = _listener.AcceptTcpClient();
-                            
+
                             i_returnResult.To(true, client);
 
                             destroy();
@@ -78,6 +78,7 @@ namespace Zealot.manager
             Logger.I.To(this, "end configuration");
         }
 
+
         void Start()
         {
             Logger.I.To(this, $"starting ...");
@@ -88,6 +89,9 @@ namespace Zealot.manager
                     _isRunning = true;
 
                     i_returnStartingReceiveClient.To(true, _port);
+                }
+                catch (SocketException sEx)
+                {
                 }
                 catch (Exception ex)
                 {

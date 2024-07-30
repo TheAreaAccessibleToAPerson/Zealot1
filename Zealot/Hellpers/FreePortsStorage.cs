@@ -1,3 +1,5 @@
+using System.Net.NetworkInformation;
+
 public static class FreePortsStorage
 {
     private static bool _isInitialize = false;
@@ -15,22 +17,36 @@ public static class FreePortsStorage
     {
         info = "";
 
-        lock(_locker)
+        lock (_locker)
         {
             Initialize();
 
-            foreach(var pair in _ports)
+            foreach (var pair in _ports)
             {
-                if (pair.Value == "")
+                IPGlobalProperties igp = IPGlobalProperties.GetIPGlobalProperties();
+                TcpConnectionInformation[] tinfo = igp.GetActiveTcpConnections();
+                foreach (TcpConnectionInformation tcpi in tinfo)
                 {
-                    port = pair.Key;
+                    if (tcpi.LocalEndPoint.Port == pair.Key)
+                    {
+                        // Порт занят.
+                    }
+                    else
+                    {
+                        if (pair.Value == "")
+                        {
 
-                    info = $"{name} получил порт {port} на временое пользование.";
+                            port = pair.Key;
 
-                    _ports[port] = name;
+                            info = $"{name} получил порт {port} на временое пользование.";
 
-                    return true;
+                            _ports[port] = name;
+
+                            return true;
+                        }
+                    }
                 }
+
             }
 
             info = $"{name} не смог получить порт, так как все порты уже заняты.";
@@ -51,7 +67,7 @@ public static class FreePortsStorage
     {
         info = "";
 
-        lock(_locker)
+        lock (_locker)
         {
             Initialize();
 
@@ -65,14 +81,14 @@ public static class FreePortsStorage
 
                     return true;
                 }
-                else 
+                else
                 {
                     info = $"{name} попытался освободить порт {port}, но данный порт выделялся для [{_ports[port]}].";
 
                     return false;
                 }
             }
-            else 
+            else
             {
                 info = $"Клиент {name} попытался освободить порт {port}, но такой порт не выделялся.";
                 return false;

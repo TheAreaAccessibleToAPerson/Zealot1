@@ -2,8 +2,8 @@
 {
     public sealed class Program
     {
-        public const string ADDRESS = "10.88.87.3";
-        public const int PORT = 5557;
+        public const string ADDRESS = "127.0.0.1";
+        public const int PORT = 5555;
 
         public static void Main(string[] args)
         {

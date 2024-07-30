@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using Butterfly;
+using MongoDB.Bson;
 
 namespace Zealot.manager
 {
@@ -14,8 +15,11 @@ namespace Zealot.manager
         {
             public const string NONE = "None";
             public const string AUTHORIZATION = "Authorization";
-            public const string SUCCSESS = "";
+            // Конец авторизации отправляет данные о клинте.
+            public const string END_AUTHORIZATION = "EndAuthorization";
         }
+
+        private TcpClient _tcpClient { set; get; }
 
         private bool _isRunning = true;
 
@@ -48,8 +52,6 @@ namespace Zealot.manager
 
         void ReceiveSSLMessage(int length, byte[] buffer)
         {
-            input_to(ref i_setState, Header.Events.SYSTEM, ISetState);
-
             try
             {
                 if (_isRunning == false) return;
@@ -127,6 +129,8 @@ namespace Zealot.manager
             RemoteAddress = ((IPEndPoint)Field.Client.RemoteEndPoint).Address.ToString();
             RemotePort = ((IPEndPoint)Field.Client.RemoteEndPoint).Port;
 
+            input_to(ref i_setState, Header.Events.SYSTEM, ISetState);
+
             add_event(Header.Events.RECEIVE_MESSAGE_FROM_CLIENT, () =>
             {
                 if (_isRunning)
@@ -135,9 +139,11 @@ namespace Zealot.manager
                     {
                         if (Field.Available > 0)
                         {
-                            byte[] buffer = new byte[32000];
+                            byte[] buffer = new byte[65536];
                             int length = Field.Client.Receive(buffer);
+
                             Console("New packet length:" + length);
+
                             ReceiveSSLMessage(length, buffer);
                         }
                     }
@@ -159,6 +165,8 @@ namespace Zealot.manager
                 {
                     try
                     {
+                        Console("Send string message");
+
                         byte[] bytes = Encoding.ASCII.GetBytes(message);
 
                         Field.Client.Send(bytes);
@@ -180,6 +188,8 @@ namespace Zealot.manager
                 {
                     try
                     {
+                        Console("Send bytes message");
+
                         Field.Client.Send(message);
                     }
                     catch (Exception ex)
@@ -200,7 +210,30 @@ namespace Zealot.manager
             {
                 if (StateInformation.IsStart && !StateInformation.IsDestroy)
                 {
-                    if (nextState == State.AUTHORIZATION)
+                    if (nextState == State.END_AUTHORIZATION)
+                    {
+                        if (_currentState == State.AUTHORIZATION)
+                        {
+                            Logger.I.To(this, $"NextState:{_currentState}->{nextState}");
+
+                            _currentState = State.END_AUTHORIZATION;
+
+                            ClientInitialize c = new ClientInitialize()
+                            {
+                                ID = "1",
+                                Name = "TestName",
+                                Email = "test@main.ru"
+                            };
+
+                            c.II();
+
+                            I_sendSSLBytesMessage.To(ServerMessage.GetMessageArray(ServerMessage.SSLType.CLIENT_DATA,
+                                JsonSerializer.SerializeToUtf8Bytes(c)));
+                        }
+                        else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
+                            $" $только если текущее состояние {State.AUTHORIZATION}");
+                    }
+                    else if (nextState == State.AUTHORIZATION)
                     {
                         if (_currentState == State.NONE)
                         {
@@ -220,16 +253,8 @@ namespace Zealot.manager
                                         {
                                             if (isStarting)
                                             {
-                                                ClientTCPPort c = new ClientTCPPort()
-                                                {
-                                                    Port = port
-                                                };
-
-                                                byte[] message = ServerMessage.GetMessageArray(
-                                                    ServerMessage.SSLType.SUCCSESS_AUTHORIZATION,
-                                                    JsonSerializer.SerializeToUtf8Bytes(port));
-
-                                                I_sendSSLBytesMessage.To(JsonSerializer.SerializeToUtf8Bytes(port));
+                                                I_sendSSLBytesMessage.To(ServerMessage.GetMessageArray(ServerMessage.SSLType.SUCCSESS_AUTHORIZATION,
+                                                    JsonSerializer.SerializeToUtf8Bytes(new ClientTCPPort() { port = port })));
                                             }
                                         }
                                     }
@@ -246,7 +271,22 @@ namespace Zealot.manager
                                     {
                                         if (StateInformation.IsStart && !StateInformation.IsDestroy)
                                         {
-                                            Console("New tcp client.");
+                                            if (isSuccsess)
+                                            {
+                                                Logger.I.To(this, $"Получен tcp клиент.");
+
+                                                _tcpClient = client;
+
+                                                i_setState.To(State.END_AUTHORIZATION);
+                                            }
+                                            else
+                                            {
+                                                Logger.I.To(this, $"Неудалось установить tpc соединение.");
+
+                                                // НУЖНО ОПОВЕСТИТЬ КЛИНТА ПО SSL
+
+                                                destroy();
+                                            }
                                         }
                                     }
                                 },
@@ -274,15 +314,98 @@ namespace Zealot.manager
             _isRunning = false;
         }
 
+        void Configurate()
+        {
+            if (MongoDB.ContainsDatabase(DB.NAME, out string containsDBerror))
+            {
+                Logger.S_I.To(this, $"База данныx {DB.NAME} уже создана.");
+            }
+            else
+            {
+                if (containsDBerror != "")
+                {
+                    Logger.S_E.To(this, containsDBerror);
+
+                    destroy();
+
+                    return;
+                }
+                else
+                {
+                    Logger.S_I.To(this, $"Создаем базу данных {DB.NAME}.");
+
+                    if (MongoDB.TryCreatingDatabase(DB.NAME, out string info))
+                    {
+                        Logger.S_I.To(this, info);
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, info);
+
+                        destroy();
+
+                        return;
+                    }
+                }
+            }
+
+            // Проверяем наличие коллекции.
+            if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.ClientsCollection.NAME,
+                out string error))
+            {
+                Logger.S_I.To(this, $"Коллекция [{DB.ClientsCollection.NAME}] в базе данных " +
+                    $" [{DB.NAME}] уже создана.");
+            }
+            else
+            {
+                // Коллекции нету, создадим ее.
+                if (error == "")
+                {
+                    if (MongoDB.TryCreatingCollection(DB.NAME, DB.ClientsCollection.NAME,
+                        out string info))
+                    {
+                        Logger.S_I.To(this, info);
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, info);
+
+                        destroy();
+
+                        return;
+                    }
+                }
+                else
+                {
+                    Logger.S_E.To(this, error);
+
+                    destroy();
+
+                    return;
+                }
+            }
+        }
+
+        public struct DB
+        {
+            public const string NAME = "Clients";
+
+            public struct ClientsCollection 
+            {
+                public const string NAME = "ClientsCollection";
+            }
+        }
+
         public void CheckLoginAndPassword(LoginAndPassword data)
         {
             // Проверяем в базе данных.
             bool result = true;
+
             if (result)
             {
                 i_setState.To(State.AUTHORIZATION);
             }
-            else 
+            else
             {
                 //Оповестим что пароль неверный.
             }
