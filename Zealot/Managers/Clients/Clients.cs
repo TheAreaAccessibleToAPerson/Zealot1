@@ -10,7 +10,7 @@ namespace Zealot.manager
 
         private Devices _devicesManager;
 
-        public readonly Dictionary<string, Client> _clients = new();
+        public readonly Dictionary<string, MainClient> _clients = new();
         public readonly Dictionary<string, IDevice> _asics = new();
 
         IInput i_getDevicesInformation;
@@ -33,7 +33,7 @@ namespace Zealot.manager
                 {
                     var result = System.Text.Encoding.Default.GetString(value);
 
-                    foreach (Client client in _clients.Values)
+                    foreach (MainClient client in _clients.Values)
                         if (client.IsAdmin()) client.I_sendSSLBytesMessage.To(value);
                 },
                 Header.Events.LISTEN_CLIENT);
@@ -47,7 +47,7 @@ namespace Zealot.manager
                 {
                     byte[] message = ServerMessage.GetMessageArray(ServerMessage.TCPType.ADD_NEW_SCAN_ASIC, json);
 
-                    foreach (Client client in _clients.Values)
+                    foreach (MainClient client in _clients.Values)
                     {
                         if (client.IsAdmin())
                         {
@@ -64,14 +64,14 @@ namespace Zealot.manager
                     IPEndPoint endPoint = client.Client.LocalEndPoint as IPEndPoint;
                     string addr = endPoint.Address.ToString();
 
-                    if (_clients.TryGetValue(addr, out Client c))
+                    if (_clients.TryGetValue(addr, out MainClient c))
                     {
                         c.destroy();
                     }
 
                     Logger.I.To(this, $"Connection new client:[Address-{addr}]");
 
-                    Client newClient = obj<Client>(addr, client);
+                    MainClient newClient = obj<MainClient>(addr, client);
                     _clients.Add(addr, newClient);
                 });
         }

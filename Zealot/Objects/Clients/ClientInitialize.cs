@@ -26,43 +26,6 @@ namespace Zealot
         public string AccessRights { set; get; } = "";
 
         public AsicInitialize[] Asics { set; get; }
-
-        public void II()
-        {
-            Asics = new AsicInitialize[1];
-
-            AsicInitialize j = new AsicInitialize()
-            {
-                UniqueNumber = "JJJJJ",
-
-                MAC = new AsicInitialize.MACInformation()
-                {
-                    MAC = "MAC_1",
-                    MAC2 = "MAC_2",
-                    MAC3 = "MAC_3"
-                },
-
-                SN = new AsicInitialize.SNInformation()
-                {
-                    SN1 = "SN_1",
-                    SN2 = "SN_2",
-                    SN3 = "SN_3",
-                },
-
-                Location = new AsicInitialize.LocationInformation()
-                {
-                    Name = "ЦЕХ",
-                    StandNumber = "1-3",
-                    SlotIndex = "1",
-                },
-
-                Client = new AsicInitialize.ClientInformation()
-                {
-                },
-            };
-
-            Asics[0] = j;
-        }
     }
 
     public class AsicInitialize
@@ -101,14 +64,8 @@ namespace Zealot
 
         public class ClientInformation
         {
-            // Сколько клиент платит на киловат.
-            public string OwnerPriceKilowatt { set; get; } = "";
-
-            public string OwnerName { set; get; } = "";
-            public string OwnerFamily { set; get; } = "";
-            public string OwnerSurname { set; get; } = "";
-            public string OwnerEmail { set; get; } = "";
-            public string OwnerTelephon { set; get; } = "";
+            // ID Клиента.
+            public string ID { set; get; } = "";
         }
 
         public class LocationInformation
