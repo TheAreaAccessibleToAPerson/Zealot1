@@ -22,7 +22,7 @@ namespace Zealot.manager
             send_message(ref i_returnStartingReceiveClient, Field.StartingReturn);
             send_message(ref i_returnResult, Field.ResultReturn);
 
-            add_event(Header.Events.LISTEN_CLIENT, 100, () =>
+            add_event(Header.Events.CLIENT_WORK, 100, () =>
             {
                 if (_isRunning)
                 {

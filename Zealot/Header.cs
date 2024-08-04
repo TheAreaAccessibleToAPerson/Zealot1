@@ -45,7 +45,7 @@ namespace Zealot
             /// Прослушивает новых клинтов, переподключает их, прослушивает сообщения от них.
             /// Работает с коллекциями клинтов.
             /// </summary> <summary>
-            public const string LISTEN_CLIENT = "ListenClient";
+            public const string CLIENT_WORK = "Client work";
             public const int LISTEN_CLIENT_TIME_DELAY = 5;
 
             /// <summary>
@@ -68,7 +68,7 @@ namespace Zealot
             listen_events(Events.SYSTEM, Events.SYSTEM);
             listen_events(Events.LOGGER, Events.LOGGER);
             listen_events(Events.MONGO_DB, Events.MONGO_DB);
-            listen_events(Events.LISTEN_CLIENT, Events.LISTEN_CLIENT);
+            listen_events(Events.CLIENT_WORK, Events.CLIENT_WORK);
             listen_events(Events.SEND_MESSAGE_TO_CLIENT, Events.SEND_MESSAGE_TO_CLIENT);
             listen_events(Events.RECEIVE_MESSAGE_FROM_CLIENT, Events.RECEIVE_MESSAGE_FROM_CLIENT);
             listen_events(Events.SCAN_DEVICES, Events.SCAN_DEVICES);

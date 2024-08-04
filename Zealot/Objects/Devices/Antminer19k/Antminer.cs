@@ -20,11 +20,11 @@ namespace Zealot.device
 
         private readonly Status _status = new Status();
 
-        CookieContainer cookeis = new CookieContainer();
+        private CookieContainer _cookeis = new CookieContainer();
 
-        protected string CurrentState = State.NONE;
+        protected string CurrentState { set; get; } = State.NONE;
 
-        protected bool IsRunning = true;
+        protected bool IsRunning { set; get; } = true;
 
         private IInput<string> I_requestInformation;
         private IInput<string> i_setState;
@@ -93,10 +93,8 @@ namespace Zealot.device
                     else Logger.S_E.To(this, $"Попытка сменить состояние с [{CurrentState}] на " +
                         $"[{nextState}]. Данную операцию можно произвести только если текущее " +
                         $" состояние равно [{State.GET_POOL}]");
-
                 }
             }
-
         }
 
         protected void IRequestInformation(string url)
@@ -119,7 +117,7 @@ namespace Zealot.device
 
                     request.Credentials = new NetworkCredential("root", "root");
 
-                    request.CookieContainer = cookeis;
+                    request.CookieContainer = _cookeis;
 
                     request.BeginGetResponse(new AsyncCallback((result) =>
                     {

@@ -1,4 +1,6 @@
 using Butterfly;
+using MongoDB.Bson;
+using Zealot.script;
 
 namespace Zealot
 {
@@ -8,6 +10,10 @@ namespace Zealot
 
         void Construction()
         {
+            StartConfigurate();
+
+            //AddClient.StartScript();
+
             obj<manager.Clients>(manager.Clients.NAME);
         }
 
@@ -50,7 +56,7 @@ namespace Zealot
             Logger.S_I.To(this, "stop");
         }
 
-        void Configurate()
+        void StartConfigurate()
         {
             Logger.S_I.To(this, "start configurate ...");
             {

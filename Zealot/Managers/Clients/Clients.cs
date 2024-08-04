@@ -10,36 +10,12 @@ namespace Zealot.manager
 
         private Devices _devicesManager;
 
+        public readonly Dictionary<string, MainClient> _admins = new();
         public readonly Dictionary<string, MainClient> _clients = new();
-        public readonly Dictionary<string, IDevice> _asics = new();
-
-        IInput i_getDevicesInformation;
-
-        /// <summary>
-        /// Отпавляет админу информацию обо всех машинах. 
-        /// </summary>
-        IInput i_sendAllAsicsInformationToAdmin;
 
         void Construction()
         {
             _devicesManager = obj<Devices>(Devices.NAME);
-
-            {
-                input_to_0_1<byte[]>(ref i_sendAllAsicsInformationToAdmin, Header.Events.WORK_DEVICE, (@return) =>
-                {
-                    @return.To(_devicesManager.GetDevicesInforamtionMessage());
-
-                }).output_to((value) =>
-                {
-                    var result = System.Text.Encoding.Default.GetString(value);
-
-                    foreach (MainClient client in _clients.Values)
-                        if (client.IsAdmin()) client.I_sendSSLBytesMessage.To(value);
-                },
-                Header.Events.LISTEN_CLIENT);
-
-                //add_event(Header.Events.LISTEN_CLIENT, 200000, i_sendAllAsicsInformationToAdmin.To);
-            }
 
             // Оповещаем администратором о новых машинах
             listen_message<byte[]>(BUS.ADMIN_LISTEN_JSON_ASICS)
@@ -51,44 +27,63 @@ namespace Zealot.manager
                     {
                         if (client.IsAdmin())
                         {
-                            client.I_sendSSLBytesMessage.To(message);
+                            //client.I_sendSSLBytesMessage.To(message);
                         }
                     }
                 },
-                Header.Events.LISTEN_CLIENT);
+                Header.Events.CLIENT_WORK);
 
-            // Сюда приходит сообщение обрабатываемое событием ListenClients
-            listen_message<TcpClient>(BUS.LISTEN_NEW_CLIENT)
+            // Сюда приходит сообщение содеждащее новое SSL подключение,
+            // обрабатываемое событием Work Client
+            listen_message<TcpClient>(BUS.ADD_CLIENT)
                 .output_to((client) =>
                 {
-                    IPEndPoint endPoint = client.Client.LocalEndPoint as IPEndPoint;
-                    string addr = endPoint.Address.ToString();
+                    string key = $"{((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString()}:" + 
+                        $"{((IPEndPoint)client.Client.RemoteEndPoint).Port}";
 
-                    if (_clients.TryGetValue(addr, out MainClient c))
+                    if (_clients.TryGetValue(key, out MainClient c))
                     {
                         c.destroy();
                     }
 
-                    Logger.I.To(this, $"Connection new client:[Address-{addr}]");
+                    Logger.I.To(this, $"Connection new client:{key}");
 
-                    MainClient newClient = obj<MainClient>(addr, client);
-                    _clients.Add(addr, newClient);
+                    Client newClient = obj<Client>(key, client);
+
+                    _clients.Add(key, newClient);
+                });
+
+            listen_message<Client>(BUS.DELETE_CLIENT)
+                .output_to((client) =>
+                {    
+                    if (_clients.Remove(client.GetKey()))
+                    {
+                        Logger.I.To(this, $"Client remove from ClientCollection.");
+                    }
+                    else 
+                    {
+                        Logger.S_E.To(this, $"Client not remove from ClientCollection.");
+
+                        destroy();
+                    }
                 });
         }
 
         void Start()
         {
-            obj<manager.network.Server>(manager.network.Server.NAME);
+            obj<network.Server>(network.Server.NAME);
+        }
+
+        void Configurate()
+        {
         }
 
         public struct BUS
         {
-            public const string LISTEN_NEW_CLIENT = NAME + ":ListenNewClient";
+            // Добовляет нового подключенного клинта.
+            public const string DELETE_CLIENT = NAME + ":Delete client";
+            public const string ADD_CLIENT = NAME + ":Add client";
             public const string ADMIN_LISTEN_JSON_ASICS = NAME + ":AdminListenJSONAsics";
-
-            // Добовляем новый в коллекцию.
-            public const string ADD_ASIC = NAME + ":AddAsic";
-            public const string DELETE_ASIC = NAME + ":DeleteAsic";
         }
     }
 
@@ -145,7 +140,7 @@ namespace Zealot.manager
             public const int ADD_ALL_ASIC = 1;
         }
 
-        public struct SSLType 
+        public struct SSLType
         {
             /// <summary>
             /// Авторизаци прошла усмешна. 

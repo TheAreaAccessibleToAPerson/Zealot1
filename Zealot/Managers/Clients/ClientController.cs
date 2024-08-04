@@ -1,19 +1,33 @@
 using System.Net.Sockets;
 using System.Text.Json;
+using Butterfly;
 
 namespace Zealot.manager
 {
-    public class ClientController : MainClient
+    public abstract class ClientController : MainClient
     {
         public struct State
         {
             public const string NONE = "None";
+
+            // 1)Происзодит авторизацию.
+            // Проверяет данные, создает TCP подключение.
             public const string AUTHORIZATION = "Authorization";
-            // Конец авторизации отправляет данные о клинте.
+
+            // 2)Запрашивает данные своих машинок.
+            public const string GET_ASICS_INFORMATION = "GetAsicsInformation";
+
+            // 3)Конец авторизации отправляет данные о клинте.
+            // Отправляет данные кленту.
             public const string END_AUTHORIZATION = "EndAuthorization";
         }
 
         protected string CurrentState { set; get; } = State.NONE;
+
+        /// <summary>
+        /// Запрашиваем все машинки которые пренадлежат клиенту.
+        /// </summary> <summary>
+        protected IInput<string> I_getAsics;
 
         protected void ISetState(string nextState)
         {
@@ -23,9 +37,22 @@ namespace Zealot.manager
             {
                 if (StateInformation.IsStart && !StateInformation.IsDestroy)
                 {
-                    if (nextState == State.END_AUTHORIZATION)
+                    if (nextState == State.GET_ASICS_INFORMATION)
                     {
                         if (CurrentState == State.AUTHORIZATION)
+                        {
+                            Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
+
+                            CurrentState = State.GET_ASICS_INFORMATION;
+
+                            I_getAsics.To(ClientInitialize.ID);
+                        }
+                        else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
+                            $" $только если текущее состояние {State.AUTHORIZATION}");
+                    }
+                    else if (nextState == State.END_AUTHORIZATION)
+                    {
+                        if (CurrentState == State.GET_ASICS_INFORMATION)
                         {
                             Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
 
@@ -45,7 +72,7 @@ namespace Zealot.manager
                             }
                         }
                         else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                            $" $только если текущее состояние {State.AUTHORIZATION}");
+                            $" $только если текущее состояние {State.GET_ASICS_INFORMATION}");
                     }
                     else if (nextState == State.AUTHORIZATION)
                     {

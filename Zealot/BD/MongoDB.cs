@@ -574,9 +574,9 @@ namespace Zealot
 
                         if(collection != null)
                         {
-                            long count = collection.DeleteOne(new BsonDocument(key, value)).DeletedCount;
+                            long count= collection.DeleteOne(new BsonDocument(key, value)).DeletedCount;
 
-                            info = $"Вы удалили {count} документов c ключом {key} и значением {value}";
+                            info = $"Вы удалили {count} документ c ключом {key} и значением {value}";
 
                             return true;
                         }

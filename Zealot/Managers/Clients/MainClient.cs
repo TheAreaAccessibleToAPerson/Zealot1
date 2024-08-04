@@ -6,7 +6,7 @@ using MongoDB.Bson;
 
 namespace Zealot.manager
 {
-    public class MainClient : Controller.Board.LocalField<TcpClient>
+    public abstract class MainClient : Controller.Board.LocalField<TcpClient>
     {
         public const string NAME = "Client";
 
@@ -234,86 +234,7 @@ namespace Zealot.manager
             }
         }
 
-
-
         public bool IsAdmin() => true;
-
-        void Destroyed()
-        {
-            IsRunning = false;
-        }
-
-        void Configurate()
-        {
-            if (MongoDB.ContainsDatabase(DB.NAME, out string containsDBerror))
-            {
-                Logger.S_I.To(this, $"База данныx {DB.NAME} уже создана.");
-            }
-            else
-            {
-                if (containsDBerror != "")
-                {
-                    Logger.S_E.To(this, containsDBerror);
-
-                    destroy();
-
-                    return;
-                }
-                else
-                {
-                    Logger.S_I.To(this, $"Создаем базу данных {DB.NAME}.");
-
-                    if (MongoDB.TryCreatingDatabase(DB.NAME, out string info))
-                    {
-                        Logger.S_I.To(this, info);
-                    }
-                    else
-                    {
-                        Logger.S_E.To(this, info);
-
-                        destroy();
-
-                        return;
-                    }
-                }
-            }
-
-            // Проверяем наличие коллекции.
-            if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.ClientsCollection.NAME,
-                out string error))
-            {
-                Logger.S_I.To(this, $"Коллекция [{DB.ClientsCollection.NAME}] в базе данных " +
-                    $" [{DB.NAME}] уже создана.");
-            }
-            else
-            {
-                // Коллекции нету, создадим ее.
-                if (error == "")
-                {
-                    if (MongoDB.TryCreatingCollection(DB.NAME, DB.ClientsCollection.NAME,
-                        out string info))
-                    {
-                        Logger.S_I.To(this, info);
-                    }
-                    else
-                    {
-                        Logger.S_E.To(this, info);
-
-                        destroy();
-
-                        return;
-                    }
-                }
-                else
-                {
-                    Logger.S_E.To(this, error);
-
-                    destroy();
-
-                    return;
-                }
-            }
-        }
 
         public struct DB
         {
@@ -346,6 +267,7 @@ namespace Zealot.manager
                     public const string ID = "ID";
                     public const string NAME = "Name";
                     public const string EMAIL = "Email";
+                    public const string ASICS_JSON = "AsicsJson";
 
                     // Права доступа.
                     public struct ACCESS_RIGHTS
@@ -365,7 +287,8 @@ namespace Zealot.manager
                 Logger.I.To(this, $"Полученый логин слишком короткий [{data.login}].");
                 destroy();
             }
-            else if (data.password.Length < 8)
+
+            else if (data.password.Length < 3)
             {
                 Logger.I.To(this, $"Полученый пароль слишком короткий [{data.password}].");
                 destroy();
@@ -394,9 +317,18 @@ namespace Zealot.manager
                                             AccessRights = client[DB.ClientsCollection.Client.ACCESS_RIGHTS.STR].ToString(),
                                         };
 
-                                        i_setState.To(ClientController.State.AUTHORIZATION);
+                                        if (ClientInitialize.IsInitialize)
+                                        {
+                                            i_setState.To(ClientController.State.AUTHORIZATION);
 
-                                        return;
+                                            return;
+                                        }
+                                        else 
+                                        {
+                                            Logger.S_W.To(this, ClientInitialize.Error);
+                                            destroy();
+                                            return;
+                                        }
                                     }
                                     else
                                     {

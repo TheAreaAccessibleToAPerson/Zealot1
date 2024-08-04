@@ -1,6 +1,6 @@
-using System.Net;
 using System.Text.Json;
 using Butterfly;
+using MongoDB.Bson;
 using Zealot.device;
 
 namespace Zealot.manager
@@ -17,39 +17,42 @@ namespace Zealot.manager
         private readonly Dictionary<string, IDevice> _scanDevices = new();
 
         /// <summary>
+        /// Сдесь находится информация о всех асиках(В работе, на стенде, на складе, вернувшиеся клиентам)
+        /// Хранится по уникальному значению выдоному в нутри компании
+        /// </summary> <summary>
+        /// <returns></returns>
+        private readonly Dictionary<string, AsicInit> _allAsics = new();
+
+        /// <summary>
         /// Сдесь хранятся ip адресса всех извлечоных из сети машинок.
         /// Данное значение нужно для того что бы при сканировании сети лишний раз не обращатся 
         /// по адресу уже подключонной машинки.
         /// </summary> <summary>
-        private readonly List<string> _ipAddresseDevices = new();
-
-        private int index = 0;
-
-        /// <summary>
-        /// Метод вызывается в потоке Header.Events.WORK_DEVICE
-        /// </summary>
-        public byte[] GetDevicesInforamtionMessage()
-        {
-            List<AsicStatus> buffer = new List<AsicStatus>();
-            {
-                int i = 0;
-                foreach (IDevice device in _scanDevices.Values)
-                {
-                    buffer.Add(device.GetStatus());
-                }
-            }
-            return ServerMessage.GetMessageArray(ServerMessage.TCPType.ADD_ALL_ASIC,
-                JsonSerializer.SerializeToUtf8Bytes(buffer));
-        }
+        private readonly List<string> _ipAddressDevices = new();
 
         void Construction()
         {
+            listen_echo_1_1<string, List<AsicInit>>(BUS.GET_CLIENT_ASICS)
+                .output_to((clientID, @return) =>
+                {
+                    List<AsicInit> result = new();
+                    {
+                        foreach (AsicInit asic in _allAsics.Values)
+                            if (clientID == asic.Client.ID)
+                            {
+                                result.Add(asic);
+                            }
+                    }
+                    @return.To(result);
+                },
+                Header.Events.WORK_DEVICE);
+
             listen_echo_1_1<string, string[]>(BUS.GET_ADDRESSES_CONNECTION_DEVICES)
                 .output_to((name, @return) =>
                 {
                     Logger.I.To(this, $"{name} запросил адресса всем машинок которые уже подключены к серверу.");
 
-                    @return.To(_ipAddresseDevices.ToArray());
+                    @return.To(_ipAddressDevices.ToArray());
                 },
                 Header.Events.WORK_DEVICE);
 
@@ -163,17 +166,163 @@ namespace Zealot.manager
                 Header.Events.WORK_DEVICE);
         }
 
+        void Configurate()
+        {
+            if (MongoDB.ContainsDatabase(DB.NAME, out string containsDBerror))
+            {
+                Logger.S_I.To(this, $"База данныx {DB.NAME} уже создана.");
+            }
+            else
+            {
+                if (containsDBerror != "")
+                {
+                    Logger.S_E.To(this, containsDBerror);
+
+                    destroy();
+
+                    return;
+                }
+                else
+                {
+                    Logger.S_I.To(this, $"Создаем базу данных {DB.NAME}.");
+
+                    if (MongoDB.TryCreatingDatabase(DB.NAME, out string info))
+                    {
+                        Logger.S_I.To(this, info);
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, info);
+
+                        destroy();
+
+                        return;
+                    }
+                }
+            }
+
+            // Проверяем наличие коллекции.
+            if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.AsicsCollections.NAME,
+                out string error))
+            {
+                Logger.S_I.To(this, $"Коллекция [{DB.AsicsCollections.NAME}] в базе данных " +
+                    $" [{DB.NAME}] уже создана.");
+            }
+            else
+            {
+                // Коллекции нету, создадим ее.
+                if (error == "")
+                {
+                    if (MongoDB.TryCreatingCollection(DB.NAME, DB.AsicsCollections.NAME,
+                        out string info))
+                    {
+                        Logger.S_I.To(this, info);
+
+                        /**********************************************/
+
+                        // Пытаемся получить все машинки.
+                        if (MongoDB.TryFind(DB.NAME, DB.AsicsCollections.NAME, out string findInfo,
+                            out List<BsonDocument> asics))
+                        {
+                            try
+                            {
+                                foreach (BsonDocument asic in asics)
+                                {
+                                    AsicInit a = JsonSerializer.Deserialize<AsicInit>
+                                        (asic[DB.AsicsCollections.Asic.NAME].ToString());
+
+                                    string uniqueNumber = a.UniqueNumber;
+
+                                    if (uniqueNumber != "")
+                                    {
+                                        if (_allAsics.ContainsKey(uniqueNumber))
+                                        {
+                                            Logger.S_E.To(this, $"Вы попытались дважды записать асики полученые из базы данных " +
+                                                $"в колекцию по уникальному номеру {uniqueNumber}");
+
+                                            destroy();
+
+                                            return;
+                                        }
+                                        else
+                                        {
+                                            Logger.I.To(this, $"Полученый из бд асик с уникальным номером:[{uniqueNumber}] " +
+                                                " записан в коллекцию.");
+
+                                            _allAsics.Add(uniqueNumber, a);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Logger.S_E.To(this, $"В базе данных записан асик с пустым уникальным номером.");
+
+                                        destroy();
+
+                                        return;
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.W.To(this, ex.ToString());
+
+                                destroy();
+                            }
+                        }
+
+                        /**********************************************/
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, info);
+
+                        destroy();
+
+                        return;
+                    }
+                }
+                else
+                {
+                    Logger.S_E.To(this, error);
+
+                    destroy();
+
+                    return;
+                }
+            }
+        }
+
         public struct BUS
         {
             public const string RECEIVE_SCAN_DEVICES = NAME + ":ReceiveScanDevices";
             public const string ADD_ASIC = NAME + ":AddAsic";
             public const string REMOVE_ASIC = NAME + ":AddAsic";
 
+            /// <summary>
+            /// Получить машинки клиeнта.
+            /// </summary> <summary>
+            public const string GET_CLIENT_ASICS = NAME + ":GetClientAsics";
+
             public const string ADD_EMPTY = NAME + ":AddEmtpy";
             public const string REMOVE_EMPTY = NAME + ":AddEmtpy";
 
 
             public const string GET_ADDRESSES_CONNECTION_DEVICES = NAME + ":GetAddressesConnectionDevices";
+        }
+
+        public struct DB
+        {
+            public const string NAME = "Asics";
+
+            public struct AsicsCollections
+            {
+                public const string NAME = "AsicsCollection";
+
+                public struct Asic
+                {
+                    public const string NAME = "Asic";
+                }
+            }
         }
     }
 
@@ -192,7 +341,7 @@ namespace Zealot.manager
             //else if (value.Contains("<link rel=\"shortcut icon\" href=\"/favicon.ico\" />"))
             //{
             //    return "1";
-                //return "ICE";
+            //return "ICE";
             //}
             // S19K
             else if (value.Contains("ANTMINER"))
