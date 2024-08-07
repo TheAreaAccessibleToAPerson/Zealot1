@@ -12,7 +12,7 @@ namespace Zealot
         {
             StartConfigurate();
 
-            //AddClient.StartScript();
+            //AddAsic.StartScript();
 
             obj<manager.Clients>(manager.Clients.NAME);
         }

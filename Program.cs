@@ -50,11 +50,6 @@ namespace Butterfly
         }
     }
 
-    public static class AddAsic 
-    {
-        
-    }
-
 
     public static class Result1
     {

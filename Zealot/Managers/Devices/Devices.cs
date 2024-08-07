@@ -32,18 +32,80 @@ namespace Zealot.manager
 
         void Construction()
         {
-            listen_echo_1_1<string, List<AsicInit>>(BUS.GET_CLIENT_ASICS)
-                .output_to((clientID, @return) =>
+            listen_echo_1_1<IClientConnect, List<string[]>>(BUS.Client.SUBSCRIBE_TO_MESSAGE)
+                .output_to((client, @return) =>
                 {
-                    List<AsicInit> result = new();
+                    string clientID = client.GetClientID();
+
+                    List<string[]> result = new();
+                    if (client.IsAdmin())
+                    {
+                        foreach (AsicInit asic in _allAsics.Values)
+                        {
+                            result.Add(new string[] { asic.MAC.MAC3, asic.SN.SN3 });
+                            asic.ClientSubscribeToReceiveMessage(client);
+                        }
+                    }
+                    else
                     {
                         foreach (AsicInit asic in _allAsics.Values)
                             if (clientID == asic.Client.ID)
                             {
-                                result.Add(asic);
+                                result.Add(new string[] { asic.MAC.MAC3, asic.SN.SN3 });
+                                asic.ClientSubscribeToReceiveMessage(client);
                             }
                     }
+
                     @return.To(result);
+                },
+                Header.Events.WORK_DEVICE);
+
+            listen_message<IClientConnect>(BUS.Client.UNSUBSCRIBE_TO_MESSAGE)
+                .output_to((client) =>
+                {
+                    string clientID = client.GetClientID();
+
+                    foreach (AsicInit asic in _allAsics.Values)
+                        if (clientID == asic.Client.ID)
+                        {
+                            asic.ClientUnsubscribeToReceiveMessage(client);
+                        }
+                },
+                Header.Events.WORK_DEVICE);
+
+            listen_echo_1_1<IClientConnect, List<AsicInit>>(BUS.Client.GET_CLIENT_ASICS)
+                .output_to((client, @return) =>
+                {
+                    if (client.IsAdmin())
+                    {
+                        foreach (AsicInit asic in _allAsics.Values)
+                        {
+                            Console(asic.MAC.MAC1);
+                            Console(asic.MAC.MAC2);
+                            Console(asic.MAC.MAC3);
+                        }
+
+                        @return.To(_allAsics.Values.ToList());
+                    }
+                    else
+                    {
+                        Console("2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                        List<AsicInit> result = new();
+                        {
+                            string clientID = client.GetClientID();
+
+                            foreach (AsicInit asic in _allAsics.Values)
+                                if (clientID == asic.Client.ID)
+                                {
+                                    Console(asic.MAC.MAC1);
+                                    Console(asic.MAC.MAC2);
+                                    Console(asic.MAC.MAC3);
+                                    result.Add(asic);
+                                }
+
+                        }
+                        @return.To(result);
+                    }
                 },
                 Header.Events.WORK_DEVICE);
 
@@ -217,60 +279,6 @@ namespace Zealot.manager
                         out string info))
                     {
                         Logger.S_I.To(this, info);
-
-                        /**********************************************/
-
-                        // Пытаемся получить все машинки.
-                        if (MongoDB.TryFind(DB.NAME, DB.AsicsCollections.NAME, out string findInfo,
-                            out List<BsonDocument> asics))
-                        {
-                            try
-                            {
-                                foreach (BsonDocument asic in asics)
-                                {
-                                    AsicInit a = JsonSerializer.Deserialize<AsicInit>
-                                        (asic[DB.AsicsCollections.Asic.NAME].ToString());
-
-                                    string uniqueNumber = a.UniqueNumber;
-
-                                    if (uniqueNumber != "")
-                                    {
-                                        if (_allAsics.ContainsKey(uniqueNumber))
-                                        {
-                                            Logger.S_E.To(this, $"Вы попытались дважды записать асики полученые из базы данных " +
-                                                $"в колекцию по уникальному номеру {uniqueNumber}");
-
-                                            destroy();
-
-                                            return;
-                                        }
-                                        else
-                                        {
-                                            Logger.I.To(this, $"Полученый из бд асик с уникальным номером:[{uniqueNumber}] " +
-                                                " записан в коллекцию.");
-
-                                            _allAsics.Add(uniqueNumber, a);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        Logger.S_E.To(this, $"В базе данных записан асик с пустым уникальным номером.");
-
-                                        destroy();
-
-                                        return;
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.W.To(this, ex.ToString());
-
-                                destroy();
-                            }
-                        }
-
-                        /**********************************************/
                     }
                     else
                     {
@@ -290,6 +298,95 @@ namespace Zealot.manager
                     return;
                 }
             }
+
+            // Пытаемся получить все машинки.
+            if (MongoDB.TryFind(DB.NAME, DB.AsicsCollections.NAME, out string findInfo,
+                out List<BsonDocument> asics))
+            {
+                try
+                {
+                    foreach (BsonDocument asic in asics)
+                    {
+                        // Асик хранится по ключу "Уникальный номер выдоный в нутри компании".
+                        string key  = asic[AsicInit._.UNIQUE_NUMBER].ToString();
+
+                        AsicInit a = new AsicInit() 
+                        {
+                            UniqueNumber = asic[AsicInit._.UNIQUE_NUMBER].ToString(), 
+
+                            Client = new AsicInit.ClientInformation()
+                            {
+                                ID = asic[AsicInit._.CLIENT_ID].ToString(), 
+                            },
+
+                            IsRunning = asic[AsicInit._.IS_RUNNING].ToBoolean(),
+
+                            Model = new AsicInit.ModelInformation()
+                            {
+                                Name1 = asic[AsicInit._.MODEL_NAME1].ToString(),
+                                Name2 = asic[AsicInit._.MODEL_NAME2].ToString(),
+                                Name3 = asic[AsicInit._.MODEL_NAME3].ToString(),
+
+                                Power = asic[AsicInit._.MODEL_POWER].ToString(),
+                            },
+
+                            SN = new AsicInit.SNInformation()
+                            {
+                                SN1 = asic[AsicInit._.SN1].ToString(),
+                                SN2 = asic[AsicInit._.SN2].ToString(),
+                                SN3 = asic[AsicInit._.SN3].ToString(),
+                            },
+
+                            MAC = new AsicInit.MACInformation()
+                            {
+                                MAC1 = asic[AsicInit._.MAC1].ToString(),
+                                MAC2 = asic[AsicInit._.MAC2].ToString(),
+                                MAC3 = asic[AsicInit._.MAC3].ToString(),
+                            },
+
+                            Location = new AsicInit.LocationInformation()
+                            {
+                                Name = asic[AsicInit._.LOCATION_NAME].ToString(),
+                                StandNumber = asic[AsicInit._.LOCATION_STAND_NUMBER].ToString(),
+                                SlotIndex = asic[AsicInit._.LOCATION_SLOT_INDEX].ToString(),
+                            },
+
+                            Pool = new AsicInit.PoolInformation()
+                            {
+                                Addr1 = asic[AsicInit._.POOL_ADDR_1].ToString(),
+                                Name1 = asic[AsicInit._.POOL_NAME_1].ToString(),
+                                Password1 = asic[AsicInit._.POOL_PASSWORD_1].ToString(),
+
+                                Addr2 = asic[AsicInit._.POOL_ADDR_2].ToString(),
+                                Name2 = asic[AsicInit._.POOL_NAME_2].ToString(),
+                                Password2 = asic[AsicInit._.POOL_PASSWORD_2].ToString(),
+
+                                Addr3 = asic[AsicInit._.POOL_ADDR_3].ToString(),
+                                Name3 = asic[AsicInit._.POOL_NAME_3].ToString(),
+                                Password3 = asic[AsicInit._.POOL_PASSWORD_3].ToString(),
+                            },
+                        };
+
+                        if (_allAsics.ContainsKey(key))
+                        {
+                            Logger.S_E.To(this, $"Вы получили из БД более одного обьектa с полем UnitqueNumber(уникальное " + 
+                                $" значение выданое в нутри компании) равным {key}. Так же по этому значению асики хранятся в колекции.");
+                            
+                            destroy();
+                        }
+                        else 
+                        {
+                            _allAsics.Add(key, a);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console(ex.ToString());
+
+                    destroy();
+                }
+            }
         }
 
         public struct BUS
@@ -298,14 +395,28 @@ namespace Zealot.manager
             public const string ADD_ASIC = NAME + ":AddAsic";
             public const string REMOVE_ASIC = NAME + ":AddAsic";
 
-            /// <summary>
-            /// Получить машинки клиeнта.
-            /// </summary> <summary>
-            public const string GET_CLIENT_ASICS = NAME + ":GetClientAsics";
+            // Это для клинта.
+            public struct Client
+            {
+                /// <summary>
+                /// Получить машинки клиeнта.
+                /// </summary> <summary>
+                public const string GET_CLIENT_ASICS = NAME + ":GetClientAsics";
+
+                /// <summary>
+                /// Подписывается на получение сообщений от машинок.
+                /// </summary> <summary>
+                public const string SUBSCRIBE_TO_MESSAGE = NAME + ":SubscribeToMessage";
+
+                /// <summary>
+                /// Отписывается от получение сообщений от машинок.
+                /// </summary> <summary>
+                public const string UNSUBSCRIBE_TO_MESSAGE = NAME + ":unsubscribeToMessage";
+            }
+
 
             public const string ADD_EMPTY = NAME + ":AddEmtpy";
             public const string REMOVE_EMPTY = NAME + ":AddEmtpy";
-
 
             public const string GET_ADDRESSES_CONNECTION_DEVICES = NAME + ":GetAddressesConnectionDevices";
         }
@@ -323,6 +434,30 @@ namespace Zealot.manager
                     public const string NAME = "Asic";
                 }
             }
+        }
+
+        /// <summary>
+        /// Интерфейс который описывает способ общения DevicesManager с клиентом.
+        /// </summary> 
+        public interface IClientConnect
+        {
+            public void SendMessage(byte[] message);
+            public void SendMessage(string message);
+
+            /// <summary>
+            /// Ключ по которому создается обьект в нутри библиотеки.
+            /// </summary>
+            public string GetKey();
+
+            /// <summary>
+            /// Является ли клиент админом?
+            /// </summary>
+            public bool IsAdmin();
+
+            /// <summary>
+            /// 
+            /// </summary>
+            public string GetClientID();
         }
     }
 

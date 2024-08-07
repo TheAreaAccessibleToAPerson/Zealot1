@@ -45,21 +45,21 @@ namespace Zealot
             public const string NULL = "[MongoDB]Вы не определили обьект для доступа к пуллу.";
         }
 
-        private static MongoClient _client;
+        public static MongoClient Client { set; get; }
 
         public static bool StartConnection(out string info)
         {
             if (_connection != "")
             {
-                if (_client == null)
+                if (Client == null)
                 {
                     info = string.Format(ConnectionData.SUCCSESS, _connection);
 
-                    _client = new MongoClient(_connection);
+                    Client = new MongoClient(_connection);
 
                     try
                     {
-                        _client.ListDatabaseNames();
+                        Client.ListDatabaseNames();
 
                         return true;
                     }
@@ -89,9 +89,9 @@ namespace Zealot
         {
             error = "";
 
-            if (_client != null)
+            if (Client != null)
             {
-                using (var c = _client.ListDatabaseNames())
+                using (var c = Client.ListDatabaseNames())
                 {
                     names = c.ToList();
                 }
@@ -126,11 +126,11 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(dbName);
+                    IMongoDatabase db = Client.GetDatabase(dbName);
 
                     if (db != null)
                     {
@@ -170,11 +170,11 @@ namespace Zealot
         {
             error = "";
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    var c = _client.GetDatabase(name);
+                    var c = Client.GetDatabase(name);
 
                     if (c != null)
                     {
@@ -225,9 +225,9 @@ namespace Zealot
 
             try
             {
-                if (_client != null)
+                if (Client != null)
                 {
-                    using (var c = _client.ListDatabaseNames())
+                    using (var c = Client.ListDatabaseNames())
                     {
                         foreach (string n in c.ToList())
                         {
@@ -241,7 +241,7 @@ namespace Zealot
                         }
                     }
 
-                    IMongoDatabase db = _client.GetDatabase(name);
+                    IMongoDatabase db = Client.GetDatabase(name);
                     db.CreateCollection(HEADER_DB);
                     db.GetCollection<string>(HEADER_DB).InsertOne(header);
 
@@ -306,11 +306,11 @@ namespace Zealot
             information = $"[MongoDB|{_connection}]Невозможно добавить BsonDocument, " +
                 $"в коллекцию {collectionName} расположеную в базе данных {dbName} так как, ";
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(dbName);
+                    IMongoDatabase db = Client.GetDatabase(dbName);
 
                     if (db != null)
                     {
@@ -373,15 +373,15 @@ namespace Zealot
 
             try
             {
-                if (_client != null)
+                if (Client != null)
                 {
-                    using (var c = _client.ListDatabaseNames())
+                    using (var c = Client.ListDatabaseNames())
                     {
                         foreach (string n in c.ToList())
                         {
                             if (name == n)
                             {
-                                client = _client.GetDatabase(name);
+                                client = Client.GetDatabase(name);
 
                                 info = $"[MongoDB|{_connection}]Вы получили обьект для доступа к базе данных [{name}].";
 
@@ -423,11 +423,11 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 if (ContainsDatabase(name, out string error))
                 {
-                    _client.DropDatabase(name);
+                    Client.DropDatabase(name);
 
                     info = $"[MongoDB|{_connection}]Вы удалили базу данных {name}.";
 
@@ -474,11 +474,11 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(databaseName);
+                    IMongoDatabase db = Client.GetDatabase(databaseName);
 
                     if (db != null)
                     {
@@ -535,7 +535,7 @@ namespace Zealot
             }
         }
 
-        public static bool TryDeleteOne(string databaseName, string collectionName, 
+        public static bool TryDeleteOne(string databaseName, string collectionName,
             string key, string value, out string info)
         {
             string information = $"[MongoDB|{_connection}]Не удалось удалить документ, так как ";
@@ -561,28 +561,28 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(databaseName);
+                    IMongoDatabase db = Client.GetDatabase(databaseName);
 
                     if (db != null)
                     {
-                        IMongoCollection<BsonDocument> collection 
+                        IMongoCollection<BsonDocument> collection
                             = db.GetCollection<BsonDocument>(collectionName);
 
-                        if(collection != null)
+                        if (collection != null)
                         {
-                            long count= collection.DeleteOne(new BsonDocument(key, value)).DeletedCount;
+                            long count = collection.DeleteOne(new BsonDocument(key, value)).DeletedCount;
 
                             info = $"Вы удалили {count} документ c ключом {key} и значением {value}";
 
                             return true;
                         }
-                        else 
+                        else
                         {
-                            info = information + $" коллекции с именем [{collectionName}] " + 
+                            info = information + $" коллекции с именем [{collectionName}] " +
                                 $" нету в базе данных [{databaseName}]";
 
                             return false;
@@ -636,11 +636,11 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(databaseName);
+                    IMongoDatabase db = Client.GetDatabase(databaseName);
 
                     if (db != null)
                     {
@@ -729,11 +729,11 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(databaseName);
+                    IMongoDatabase db = Client.GetDatabase(databaseName);
 
                     if (db != null)
                     {
@@ -798,11 +798,11 @@ namespace Zealot
                 return false;
             }
 
-            if (_client != null)
+            if (Client != null)
             {
                 try
                 {
-                    IMongoDatabase db = _client.GetDatabase(databaseName);
+                    IMongoDatabase db = Client.GetDatabase(databaseName);
 
                     if (db != null)
                     {

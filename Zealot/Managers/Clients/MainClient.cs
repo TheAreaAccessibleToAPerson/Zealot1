@@ -133,6 +133,7 @@ namespace Zealot.manager
                         else
                         {
                             Logger.S_E.To(this, $"Неизвестный тип:[{type}] сообщения.");
+
                             destroy();
                         }
 
@@ -285,12 +286,14 @@ namespace Zealot.manager
             if (data.login.Length < 4)
             {
                 Logger.I.To(this, $"Полученый логин слишком короткий [{data.login}].");
+
                 destroy();
             }
 
             else if (data.password.Length < 3)
             {
                 Logger.I.To(this, $"Полученый пароль слишком короткий [{data.password}].");
+
                 destroy();
             }
             else
@@ -326,7 +329,9 @@ namespace Zealot.manager
                                         else 
                                         {
                                             Logger.S_W.To(this, ClientInitialize.Error);
+
                                             destroy();
+
                                             return;
                                         }
                                     }
@@ -349,6 +354,7 @@ namespace Zealot.manager
                                     // Удалим обьект.
 
                                     Logger.I.To(this, $"Поступил пароль [{data.password}] не соответвующий логину:[{data.login}].");
+
                                     destroy();
                                 }
                             }
@@ -356,6 +362,7 @@ namespace Zealot.manager
 
                         // Такого логина не сущесвует, оповестим клинта, и удалиим текущий обьект.
                         Logger.I.To(this, $"Поступил несущесвующий логин:[{data.login}].");
+
                         destroy();
                     }
                     catch (Exception ex)

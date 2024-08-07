@@ -10,16 +10,10 @@ namespace Zealot.manager
 
         void Start()
         {
-            // Приходит подключение.
-            // Создается SSL клиент.
-            // Принимаем данные логин, пароль.
-            // Если верно, то
-            // Проверяем не авторизованы ли мы, если да то завершаем прошлую сессию.
-            // Если нет, то авторизуемся.
-            // Далее создаем новую TCP сессию, отправляем уникальный id и порт клиенту по SSL, по которому нужно подключиться.
-            // После клиент устанавливает TCP соединение.
-            // После того как соединение установлено, сервер сообщает клинту о начале работы.
-            // И высылает ему необходимые данные.
+            Logger.I.To(this, "starting ...");
+            {
+                i_setState.To(State.AUTHORIZATION);
+            }
         }
 
         void Construction()
@@ -36,26 +30,41 @@ namespace Zealot.manager
             add_event(Header.Events.RECEIVE_MESSAGE_FROM_CLIENT, ReceiveMessageFromClient);
 
             send_message(ref i_removeFromClientsCollection, Clients.BUS.DELETE_CLIENT);
-            send_echo_1_1<string, List<AsicInit>>(ref I_getAsics, Devices.BUS.GET_CLIENT_ASICS)
+            send_echo_1_1<Devices.IClientConnect, List<AsicInit>>(ref I_getAsics, Devices.BUS.Client.GET_CLIENT_ASICS)
                 .output_to((asics) =>
                 {
                     if (ClientInitialize.SetAsics(asics, out string info))
-                    { 
-                        Logger.I.To(this, info); 
+                    {
+                        Logger.I.To(this, info);
+
+                        i_setState.To(State.END_AUTHORIZATION);
                     }
                     else
-                    { 
-                        Logger.S_E.To(this, info); 
-                        destroy(); 
+                    {
+                        Logger.S_E.To(this, info);
+
+                        destroy();
                     }
+                },
+                Header.Events.SYSTEM);
+
+            send_echo_1_1<Devices.IClientConnect, List<string[]>>(ref I_subscribeToAsicsMessage, Devices.BUS.Client.SUBSCRIBE_TO_MESSAGE)
+                .output_to((subAsics) =>
+                {
+                    DecrementEvent();
+
+                    string u = "Subscribe to asics:";
+                    for (int i = 0; i < subAsics.Count; i++)
+                        u += $"\n{i + 1})MAC:[{subAsics[i][0]}], SN:[{subAsics[i][1]}]";
+
+                    Logger.I.To(this, u);
+
+                    i_setState.To(State.RUNNING);
                 },
                 Header.Events.SYSTEM);
         }
 
-        void Stop()
-        {
-
-        }
+        void Stop() { }
 
         void Destruction()
         {
@@ -63,7 +72,10 @@ namespace Zealot.manager
             // Поэтому удаляем обьект из коллекции вот от сюда.
             Logger.I.To(this, "destruction call ...");
             {
-                i_removeFromClientsCollection.To(this);
+                if (StateInformation.IsCallConstruction)
+                {
+                    i_removeFromClientsCollection.To(this);
+                }
             }
         }
 

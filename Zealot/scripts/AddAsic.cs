@@ -8,21 +8,62 @@ namespace Zealot.script
     /// </summary> <summary>
     public static class AddAsic
     {
-        public static void StartScript()
+        public static void StartScript1()
         {
-            //AddToDB(true, "root", "root", "00000000", "root", "root@main.ru", "root");
-            AddToDB("a0000001", "00000000", true, 
-            "SN001", "SN001", "SN001", 
-            "MAC001", "MAC001", "MAC001",
-            "ЦЕХ", "1-1", "3", 
-            "addr1", "name1", "password1",
-            "addr2", "name2", "password2",
-            "addr3", "name3", "password3"
+            var m = MongoDB.Client.GetDatabase(DB.NAME);
+            m.DropCollection(DB.AsicsCollections.NAME);
+        }
+        //5 - это id тестового клиeнта.
+        public static void StartScript2()
+        {
+            AddToDB("id000001", "5", true, 
+            "", "", "WhatsMiner M50",
+            "120T",
+            // SN
+            "", "", "HTM32X84KU23111512068123733A50975",
+            // MAC
+            "", "", "CC:08:1F:00:26:8C",
+            "ЦЕХ", "6-1", "1", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+
+            AddToDB("id000002", "5", true, 
+            "", "", "WhatsMiner M50",
+            "120T",
+            // SN
+            "", "", "HTM32X84KU23111512068123733A50733",
+            // MAC
+            "", "", "CC:09:01:00:34:A0",
+            "ЦЕХ", "6-1", "2", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+
+            AddToDB("id000003", "5", true, 
+            "", "", "WhatsMiner M50",
+            "120T",
+            // SN
+            "", "", "HTM32X84KU23111412068123733A50652",
+            // MAC
+            "", "", "CC:08:1F:00:26:5B",
+            "ЦЕХ", "6-1", "3", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
             );
         }
 
         private static void AddToDB(string uniqueNumber, string clientID, bool isRunning,
-            string SN1, string SN2, string SN3, string MAC1, string MAC2, string MAC3,
+            // Программный, москва, по факту(наклейка)
+            string modelName1, string modelName2, string modelName3,
+            string modelPower,
+            // Программный, москва, по факту(наклейка)
+            string SN1, string SN2, string SN3, 
+            // Программный, москва, по факту(наклейка)
+            string MAC1, string MAC2, string MAC3,
             string locationName, string locationStandNumber, string locationSlotIndex,
             string poolAddr1, string poolName1, string poolPassword1,
             string poolAddr2, string poolName2, string poolPassword2,
@@ -130,6 +171,10 @@ namespace Zealot.script
                 { AsicInit._.UNIQUE_NUMBER, uniqueNumber},
                 { AsicInit._.CLIENT_ID, clientID},
                 { AsicInit._.IS_RUNNING, isRunning},
+                { AsicInit._.MODEL_NAME1, modelName1}, 
+                { AsicInit._.MODEL_NAME2, modelName2}, 
+                { AsicInit._.MODEL_NAME3, modelName3},
+                { AsicInit._.MODEL_POWER, modelPower},
                 { AsicInit._.SN1, SN1}, { AsicInit._.SN2, SN2}, { AsicInit._.SN3, SN3},
                 { AsicInit._.MAC1, MAC1}, { AsicInit._.MAC2, MAC2}, { AsicInit._.MAC3, MAC3},
                 { AsicInit._.LOCATION_NAME, locationName},

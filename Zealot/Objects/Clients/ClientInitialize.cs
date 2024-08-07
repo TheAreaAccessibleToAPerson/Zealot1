@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Zealot.manager;
 
 namespace Zealot
 {
@@ -51,11 +52,6 @@ namespace Zealot
                     Error += "В обьекте ClientInitialize не проинициализировано св-во AccessRights. ";
                     result = false;
                 }
-                if (Asics == null)
-                {
-                    Error += "В обьекте ClientInitialize не проинициализировано св-во Asics. ";
-                    result = false;
-                }
 
                 return result;
             }
@@ -98,7 +94,7 @@ namespace Zealot
 
                 return true;
             }
-            else 
+            else
             {
                 info += $"не смог получить информацию о своих {asics.Count} машинах, так как эта информация была получена ранее.";
 
@@ -115,11 +111,87 @@ namespace Zealot
         // Разрешение на работу.
         public bool IsRunning { set; get; } = false;
 
-        public MACInformation MAC { set; get; }
+        public MACInformation MAC { set; get; } 
         public SNInformation SN { set; get; }
         public LocationInformation Location { set; get; }
         public ClientInformation Client { set; get; }
+        public ModelInformation Model { set; get; }
         public PoolInformation Pool { set; get; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private Devices.IClientConnect[] _clientsConnect;
+        private int _clientConnectCount = 0;
+
+        /// <summary>
+        /// Отправить сообщение клиенту.
+        /// Должно выполнятся в потоке который обрабатывает работу девайсов.
+        /// </summary>
+        public void SendToMessage()
+        {
+            for (int i = 0; i < _clientConnectCount; i++)
+            {
+                _clientsConnect[i].SendMessage(new byte[] {});
+            }
+        }
+
+        public void ClientSubscribeToReceiveMessage(Devices.IClientConnect client)
+        {
+            if (_clientsConnect == null)
+                _clientsConnect = new Devices.IClientConnect[1];
+            else
+            {
+                Devices.IClientConnect[] buffer = new Devices.IClientConnect[_clientConnectCount + 1];
+                for (int i = 0; i < _clientConnectCount; i++)
+                    buffer[i] = _clientsConnect[i];
+
+                _clientsConnect = buffer;
+            }
+
+            _clientsConnect[_clientConnectCount++] = client;
+        }
+
+        public void ClientUnsubscribeToReceiveMessage(Devices.IClientConnect client)
+        {
+            if (_clientsConnect != null)
+            {
+                for (int i = 0; i < _clientConnectCount; i++)
+                {
+                    if (client.GetKey() == _clientsConnect[i].GetKey())
+                    {
+                        Devices.IClientConnect[] buffer = new Devices.IClientConnect[_clientConnectCount - 1];
+                        {
+                            for (int u = 0; u < _clientConnectCount; u++)
+                            {
+                                int index = 0;
+                                if (u != i)
+                                {
+                                    buffer[index] = _clientsConnect[index];
+                                    ++index;
+                                }
+                            }
+                        }
+                        _clientsConnect = buffer;
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        public class ModelInformation
+        {
+            // Имя в нутри системы.
+            public string Name1 { set; get; } = "";
+            // Имя указаное при отправки
+            public string Name2 { set; get; } = "";
+            // Имя по факту.
+            public string Name3 { set; get; } = "";
+
+            // Заявленая мощность модели.
+            public string Power { set; get; } = "";
+        }
 
         public class PoolInformation
         {
@@ -139,7 +211,7 @@ namespace Zealot
         public class MACInformation
         {
             // Программный мак.
-            public string MAC { set; get; } = "";
+            public string MAC1 { set; get; } = "";
             // Мак указаный при отправки.
             public string MAC2 { set; get; } = "";
             // Мак указаный на наклейки.
@@ -179,6 +251,10 @@ namespace Zealot
             public const string UNIQUE_NUMBER = "UniqueNumber";
             public const string CLIENT_ID = "ClientID";
             public const string IS_RUNNING = "Is running";
+            public const string MODEL_NAME1 = "ModelName1";
+            public const string MODEL_NAME2 = "ModelName2";
+            public const string MODEL_NAME3 = "ModelName3";
+            public const string MODEL_POWER = "ModelPower";
             public const string SN1 = "SN1";
             public const string SN2 = "SN2";
             public const string SN3 = "SN3";
