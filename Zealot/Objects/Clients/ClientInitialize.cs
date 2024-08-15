@@ -128,12 +128,35 @@ namespace Zealot
         /// Отправить сообщение клиенту.
         /// Должно выполнятся в потоке который обрабатывает работу девайсов.
         /// </summary>
-        public void SendToMessage()
+        public void SendToMessage(byte[] message)
         {
             for (int i = 0; i < _clientConnectCount; i++)
             {
-                _clientsConnect[i].SendMessage(new byte[] {});
+                _clientsConnect[i].SendMessage(message);
             }
+        }
+
+        /// <summary>
+        /// Отправить сообщение клиенту.
+        /// Должно выполнятся в потоке который обрабатывает работу девайсов.
+        /// </summary>
+        public void SendToMessage(string message)
+        {
+            for (int i = 0; i < _clientConnectCount; i++)
+            {
+                _clientsConnect[i].SendMessage(message);
+            }
+        }
+
+        /// <summary>
+        /// Данный метод рассылает всем клиентам данные о машинках по tcp соединению.
+        /// Скорость куллера и тд.
+        /// </summary>
+        public void SendDataMessage(byte[] jsonUtf8Bytes)
+        {
+            byte[] m = ServerMessage.GetMessageArray(ServerMessage.TCPType.ASIC_DATA, jsonUtf8Bytes);
+            for (int i = 0; i < _clientConnectCount; i++)
+                _clientsConnect[i].SendMessage(m);
         }
 
         public void ClientSubscribeToReceiveMessage(Devices.IClientConnect client)

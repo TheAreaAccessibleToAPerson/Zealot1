@@ -224,6 +224,7 @@ namespace Zealot.manager
         {
             if (IsRunning && CurrentState == State.RUNNING)
             {
+                SendTcpMessage(message);
             }
         }
 
@@ -231,6 +232,7 @@ namespace Zealot.manager
         {
             if (IsRunning && CurrentState == State.RUNNING)
             {
+                SendTcpMessage(message);
             }
         }
 

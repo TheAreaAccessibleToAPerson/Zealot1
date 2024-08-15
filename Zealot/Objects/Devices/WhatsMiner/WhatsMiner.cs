@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Butterfly;
 using Zealot.manager;
 
 namespace Zealot.device
@@ -14,16 +15,87 @@ namespace Zealot.device
         {
             Status.Address = Field.IPAddress;
 
-            send_message(ref I_sendJSON, Clients.BUS.ADMIN_LISTEN_JSON_ASICS);
-
             input_to(ref i_setState, Header.Events.SCAN_DEVICES, ISetState);
             input_to(ref I_requestInformation, Header.Events.SCAN_DEVICES, IRequestInformation);
+
+            send_echo_1_1<string, AsicInit>(ref I_asicInit, Devices.BUS.Asic.GET_ASIC_INIT)
+                .output_to((asicInit) =>
+                {
+                    if (AsicInit == null)
+                    {
+                        if (asicInit != null)
+                        {
+
+                            Logger.I.To(this, $"Вы получили данные о данном асике из базы данных.");
+
+                            AsicInit = asicInit;
+                            {
+                                input_to(ref I_sendBytesMessageToClients, Header.Events.WORK_DEVICE, AsicInit.SendToMessage);
+                                input_to(ref I_sendStringMessageToClients, Header.Events.WORK_DEVICE, AsicInit.SendToMessage);
+                            }
+
+                            i_setState.To(State.DOWNLOAD_POOL);
+                        }
+                        else
+                        {
+                            i_setState.To(State.DOWNLOAD_POOL);
+
+                            Logger.I.To(this, $"О данном девайсе c mac:[{_MAC}] нету информации в базе данных.");
+                        }
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Вы повторно получили данные их асика из базы данных.");
+
+                        destroy();
+
+                        return;
+                    }
+                },
+                Header.Events.SCAN_DEVICES);
+
+            input_to_0_1<IDevice>(ref I_addAsicToDictionary, (@return) =>
+            {
+                @return.To(this);
+            })
+            .send_echo_to<bool>(Devices.BUS.ADD_ASIC)
+                .output_to((result) =>
+                {
+                    if (result)
+                    {
+                        Logger.I.To(this, $"Устройсво было добавлено в словарь по mac:[{_MAC}], попытаемся получить его дынные.");
+
+                        if (AsicInit == null)
+                        {
+                            I_asicInit.To(_MAC);
+                        }
+                        else
+                        {
+                            Logger.S_E.To(this, $" Неудалось отправить запрос так как вы уже ранее получили данные.");
+
+                            destroy();
+
+                            return;
+                        }
+                    }
+                },
+                Header.Events.SCAN_DEVICES);
         }
 
-        void Start() => i_setState.To(State.DOWNLOAD_MAC_AND_UPLOAD);
-
-        void Destroyed()
+        void Start()
         {
+            Logger.I.To(this, $"starting ...");
+            {
+                i_setState.To(State.DOWNLOAD_MAC_AND_UPLOAD);
+            }
+            Logger.I.To(this, $"start");
+        }
+
+        void Destroyed() { }
+
+        void Stop()
+        {
+            // Опишим из списка который хранит девайсы.
         }
 
         public float GetHashrate() => _hashrate;
@@ -214,10 +286,7 @@ namespace Zealot.device
             return JsonSerializer.SerializeToUtf8Bytes(Status);
         }
 
-        public string GetAddress()
-        {
-            throw new NotImplementedException();
-        }
+        public string GetAddress() => Field.IPAddress;
 
         public void Destroy(string info)
         {

@@ -4,6 +4,8 @@ using MongoDB.Bson;
 
 namespace Zealot.manager
 {
+    // КЛИЕНТ АДМИН ЧЕРЕЗ ОПРЕДЕЛЕННЫЙ ПРОМЕЖУТОК ВРЕМЕНИ ДОЛЖЕН ЗАПРАШИВАТЬ
+    // МАШИНЫ НЕ СОХРАНЕНЫЕ В БАЗЕ ДАННЫХ.
     public sealed class Client : ClientController
     {
         private IInput<Client> i_removeFromClientsCollection;

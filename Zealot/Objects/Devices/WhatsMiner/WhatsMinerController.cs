@@ -14,6 +14,10 @@ namespace Zealot.device.whatsminer
             public const string NONE = "None";
             public const string DOWNLOAD_MAC_AND_UPLOAD = "DownloadMacAndUpload";
             public const string DOWNLOAD_POOL = "DowloadPool";
+            /// <summary>
+            /// Пытаемся получить информацию о данном устройсве из базы устройсв. 
+            /// </summary>
+            public const string ASIC_INIT = "AsicInit";
             // Пуллы загружается по 2 ссылкам, данное состояние будет выставленно если 
             // не удалось загрузить по первой ссылке.
             public const string ANOTHER_DOWNLOAD_POOL = "AnotherDowloadPool";
@@ -37,14 +41,6 @@ namespace Zealot.device.whatsminer
         private static int index = 0;
         private static object locker = new();
 
-        protected IInput<byte[]> I_sendJSON;
-
-        /// <summary>
-        /// Добавить устройсво в менеджер девайсов. 
-        /// 1) Удалось ли загрузить данные.
-        /// 2) Само устройсво.
-        /// </summary>
-        protected IInput<bool, IDevice> I_addToDevices;
 
         ///  <summary>
         /// Время работы.
@@ -69,9 +65,21 @@ namespace Zealot.device.whatsminer
 
         protected string CurrentState = State.NONE;
 
+        //************ASIC INIT****************
+        // Зарпашивает данные об асике.
+        protected AsicInit AsicInit;
+        protected IInput<string> I_asicInit;
+        protected IInput<byte[]> I_sendBytesMessageToClients;
+        protected IInput<string> I_sendStringMessageToClients;
+
+
+        //**********ADD NEW ASIC TO DEVICES MANAGER***********
+        protected IInput I_addAsicToDictionary;
+        private bool isAddAsicToDictionary = false;
+
         protected void ISetState(string nextState)
         {
-            if (IsRunning == false) return; 
+            if (IsRunning == false) return;
 
             lock (StateInformation.Locker)
             {
@@ -91,9 +99,24 @@ namespace Zealot.device.whatsminer
                         $"[{nextState}]. Данную операцию можно произвести только если текущее " +
                         $" состояние равно [{State.NONE}]");
                 }
-                else if (nextState == State.DOWNLOAD_POOL)
+                else if (nextState == State.ASIC_INIT)
                 {
                     if (CurrentState == State.DOWNLOAD_MAC_AND_UPLOAD || CurrentState == State.UPDATE)
+                    {
+                        //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
+
+                        CurrentState = nextState;
+
+                        I_asicInit.To(_MAC);
+                    }
+                    else Logger.S_E.To(this, $"Попытка сменить состояние с [{CurrentState}] на " +
+                        $"[{nextState}]. Данную операцию можно произвести только если текущее " +
+                        $" состояние равно [{State.DOWNLOAD_MAC_AND_UPLOAD}]");
+                }
+                else if (nextState == State.DOWNLOAD_POOL)
+                {
+                    if (CurrentState == State.ASIC_INIT || CurrentState == State.DOWNLOAD_MAC_AND_UPLOAD ||
+                        CurrentState == State.UPDATE)
                     {
                         //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
 
@@ -270,11 +293,35 @@ namespace Zealot.device.whatsminer
                 int result = hellpers.WhatsMiner.ExtractMACAndUpload(str, out string error, out _MAC, out _uptime);
                 if (result == 0)
                 {
-                    Status.MAC = _MAC;
+                    if (_MAC != "")
+                    {
+                        Status.MAC = _MAC;
 
-                    //Result1.Reiceve(Field.IPAddress, _MAC);
+                        //Result1.Reiceve(Field.IPAddress, _MAC);
 
-                    i_setState.To(State.DOWNLOAD_POOL);
+                        // Проверим по маку имеется ли такая машинка в наличии.
+                        if (isAddAsicToDictionary == false)
+                        {
+                            I_addAsicToDictionary.To();
+                        }
+                        else
+                        {
+                            // Проверим получили ли мы данные по этой машинки из быза данных.
+                            if (AsicInit != null)
+                            {
+                                // Если информация об асике получена.
+                                i_setState.To(State.DOWNLOAD_POOL);
+                            }
+                        }
+                    }
+                    else 
+                    {
+                        Logger.E.To(this, $"В результате парсинга был получен пустой мак.");
+
+                        destroy();
+
+                        return;
+                    }
                 }
                 else if (result == 1)
                 {
@@ -299,13 +346,17 @@ namespace Zealot.device.whatsminer
                 else if (poolExtractResult == 1)
                 {
                     Logger.W.To(this, poolExtractResultInfo);
+
                     destroy();
+
                     return;
                 }
                 else
                 {
                     Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение пуллов из ватсмайнера.");
+
                     destroy();
+
                     return;
                 }
 
@@ -317,13 +368,17 @@ namespace Zealot.device.whatsminer
                 else if (poolExtractResult == 1)
                 {
                     Logger.W.To(this, workerExtractResultInfo);
+
                     destroy();
+
                     return;
                 }
                 else
                 {
                     Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение воркеров из ватсмайнера.");
+
                     destroy();
+
                     return;
                 }
 
@@ -335,13 +390,17 @@ namespace Zealot.device.whatsminer
                 else if (passwordExtractResult == 1)
                 {
                     Logger.W.To(this, passwordExtractResultInfo);
+
                     destroy();
+
                     return;
                 }
                 else
                 {
                     Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение паролей из ватсмайнера.");
+
                     destroy();
+
                     return;
                 }
 
@@ -361,51 +420,69 @@ namespace Zealot.device.whatsminer
                     Logger.W.To(this, powerInfo);
 
                     destroy();
+
                     return;
                 }
                 else
                 {
                     Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение power mode из ватсмайнера.");
+
                     destroy();
+
                     return;
                 }
             }
             else if (CurrentState == State.DOWNLOAD_STATE)
             {
                 int extractMainPageResult =
-                    hellpers.WhatsMiner.ExtractMainPage(str, out string downloadStateInfo,
-                        ref Status);
+                    hellpers.WhatsMiner.ExtractMainPage(str, out string downloadStateInfo, ref Status);
 
                 if (extractMainPageResult == 0)
                 {
-                    /*
-                    lock (locker)
+                    Logger.I.To(this, $"Отправляем сообщение клиeнтам.");
+
+                    if (AsicInit != null)
                     {
-                        index++;
-                        Logger.I.To(this, $"COUNT:{index}");
+                        OutputDataJson data = new OutputDataJson()
+                        {
+                            UniqueNumber = AsicInit.UniqueNumber,
+
+                            Culler1_power = Status.FanSpeedIn,
+                            Culler2_power = Status.FanSpeedOut,
+                        };
+
+                        AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(data));
+
+                        i_setState.To(State.WAIT_STATE);
                     }
-                    */
+                    else 
+                    {
+                        Logger.S_E.To(this, $"В момент отправки сообщения от асика клинтам поле AsicInit окозалось null.");
 
-                    //Logger.I.To(this, downloadStateInfo);
-                    I_sendJSON.To(JsonSerializer.SerializeToUtf8Bytes(Status));
+                        destroy();
 
-                    i_setState.To(State.WAIT_STATE);
+                        return;
+                    }
                 }
                 else if (extractMainPageResult == 1)
                 {
-                    Logger.I.To(this, downloadStateInfo);
                     // Удалось получить не все поля.
+                    Logger.I.To(this, downloadStateInfo);
                 }
                 else if (extractMainPageResult == 2)
                 {
                     Logger.W.To(this, downloadStateInfo);
+
                     destroy();
+
                     return;
                 }
                 else
                 {
                     Logger.W.To(this, "Вы получили неизвестный тип ошибки во время извлечения данных с главной страницы с ватсмайнера.");
+
                     destroy();
+
                     return;
                 }
             }

@@ -32,6 +32,35 @@ namespace Zealot.manager
 
         void Construction()
         {
+            listen_echo_1_1<string, AsicInit>(BUS.Asic.GET_ASIC_INIT)
+                .output_to((mac, @return) =>
+                {
+                    Console($"MAC:[{mac}]");
+                    foreach (AsicInit asicInit in _allAsics.Values)
+                    {
+                        AsicInit.MACInformation macInfo = asicInit.MAC;
+
+                        Console($"mac:[{macInfo.MAC3}]");
+
+                        if (macInfo.MAC3 == mac)
+                        {
+                            @return.To(asicInit);
+
+                            return;
+                        }
+                    }
+
+                    @return.To(null);
+                },
+                Header.Events.WORK_DEVICE);
+
+            listen_echo<List<IDevice>>(BUS.Client.ADMIN_GET_NOT_DB_ASICS)
+                .output_to((@return) =>
+                {
+                    // 
+                },
+                Header.Events.WORK_DEVICE);
+
             listen_echo_1_1<IClientConnect, List<string[]>>(BUS.Client.SUBSCRIBE_TO_MESSAGE)
                 .output_to((client, @return) =>
                 {
@@ -78,18 +107,10 @@ namespace Zealot.manager
                 {
                     if (client.IsAdmin())
                     {
-                        foreach (AsicInit asic in _allAsics.Values)
-                        {
-                            Console(asic.MAC.MAC1);
-                            Console(asic.MAC.MAC2);
-                            Console(asic.MAC.MAC3);
-                        }
-
                         @return.To(_allAsics.Values.ToList());
                     }
                     else
                     {
-                        Console("2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                         List<AsicInit> result = new();
                         {
                             string clientID = client.GetClientID();
@@ -97,9 +118,6 @@ namespace Zealot.manager
                             foreach (AsicInit asic in _allAsics.Values)
                                 if (clientID == asic.Client.ID)
                                 {
-                                    Console(asic.MAC.MAC1);
-                                    Console(asic.MAC.MAC2);
-                                    Console(asic.MAC.MAC3);
                                     result.Add(asic);
                                 }
 
@@ -131,9 +149,23 @@ namespace Zealot.manager
                 },
                 Header.Events.WORK_DEVICE);
 
-            listen_message<IDevice>(BUS.ADD_ASIC)
-                .output_to((device) =>
+            listen_echo_1_1<IDevice, bool>(BUS.ADD_ASIC)
+                .output_to((device, @return) =>
                 {
+                    string mac = device.GetMAC();
+                    string address = device.GetAddress();
+
+                    Logger.I.To(this, $"Поступило новое устройсво по в {BUS.ADD_ASIC}, mac:[{mac}], ip:[{address}]");
+
+                    if (address == "")
+                    {
+                        Logger.S_E.To(this, $"Вы получили в {BUS.ADD_ASIC} устройсво с пустым ip аддрессом.");
+
+                        destroy();
+
+                        return;
+                    }
+
                     lock (StateInformation.Locker)
                     {
                         if (!StateInformation.IsDestroy && StateInformation.IsStart)
@@ -147,7 +179,6 @@ namespace Zealot.manager
                                 return;
                             }
 
-                            string mac = device.GetMAC();
 
                             if (mac != "")
                             {
@@ -157,7 +188,6 @@ namespace Zealot.manager
                                     {
                                         Logger.W.To(this, $"Попытка дважды добавить устройсво с маком {mac} " +
                                             $" (ip Address:{device.GetAddress()})");
-
                                         device.Destroy($"Попытка дважды добавить устройсво с маком {mac} " +
                                             $" (ip Address:{device.GetAddress()})");
                                     }
@@ -176,6 +206,8 @@ namespace Zealot.manager
                                     Logger.I.To(this, $"Добавлен новый асик:MAC[{mac}], Address[{device.GetAddress()}]");
 
                                     _scanDevices.Add(mac, device);
+
+                                    @return.To(true);
                                 }
                             }
                             else if (mac == "")
@@ -185,6 +217,8 @@ namespace Zealot.manager
                                 device.Destroy($"Вам поступило устройсва без мака(IPAddress{device.GetAddress()})");
                             }
                         }
+
+                        @return.To(false);
                     }
                 },
                 Header.Events.WORK_DEVICE);
@@ -192,7 +226,6 @@ namespace Zealot.manager
             listen_message<string, string>(BUS.RECEIVE_SCAN_DEVICES)
                 .output_to((address, html) =>
                 {
-
                     Setting setting = new Setting()
                     {
                         IPAddress = address
@@ -208,12 +241,44 @@ namespace Zealot.manager
 
                         case WhatsMiner.NAME:
 
-                            //_scanDevices.Add(address, obj<WhatsMiner>(address, setting));
+                            if (_scanDevices.ContainsKey(address))
+                            {
+                                Logger.S_E.To(this, $"Вы попытались дважды добавить машинку по ключу {address} в _scanDevices.");
+
+                                destroy();
+
+                                return;
+                            }
+                            else
+                            {
+                                foreach (string a in _ipAddressDevices)
+                                {
+                                    if (a == address)
+                                    {
+                                        Logger.S_E.To(this, $"Вы пытаетесь добавить в список хронящий ip адресса, повторяющийся адреесс {address}");
+
+                                        destroy();
+
+                                        return;
+                                    }
+                                }
+
+                                if (try_obj(address, out WhatsMiner asic))
+                                {
+                                    Logger.W.To(this, $"Уже добавлен WhatsMiner по аддресу(ключy) {address}.");
+                                }
+                                else 
+                                {
+                                    obj<WhatsMiner>(address, setting);
+
+                                    _ipAddressDevices.Add(address);
+                                }
+                            }
 
                             break;
                         case "Antminer":
 
-                            _scanDevices.Add(address, obj<AntminerDefault>(address, setting));
+                            //_scanDevices.Add(address, obj<AntminerDefault>(address, setting));
 
                             break;
                         default:
@@ -308,15 +373,15 @@ namespace Zealot.manager
                     foreach (BsonDocument asic in asics)
                     {
                         // Асик хранится по ключу "Уникальный номер выдоный в нутри компании".
-                        string key  = asic[AsicInit._.UNIQUE_NUMBER].ToString();
+                        string key = asic[AsicInit._.UNIQUE_NUMBER].ToString();
 
-                        AsicInit a = new AsicInit() 
+                        AsicInit a = new AsicInit()
                         {
-                            UniqueNumber = asic[AsicInit._.UNIQUE_NUMBER].ToString(), 
+                            UniqueNumber = asic[AsicInit._.UNIQUE_NUMBER].ToString(),
 
                             Client = new AsicInit.ClientInformation()
                             {
-                                ID = asic[AsicInit._.CLIENT_ID].ToString(), 
+                                ID = asic[AsicInit._.CLIENT_ID].ToString(),
                             },
 
                             IsRunning = asic[AsicInit._.IS_RUNNING].ToBoolean(),
@@ -369,12 +434,12 @@ namespace Zealot.manager
 
                         if (_allAsics.ContainsKey(key))
                         {
-                            Logger.S_E.To(this, $"Вы получили из БД более одного обьектa с полем UnitqueNumber(уникальное " + 
+                            Logger.S_E.To(this, $"Вы получили из БД более одного обьектa с полем UnitqueNumber(уникальное " +
                                 $" значение выданое в нутри компании) равным {key}. Так же по этому значению асики хранятся в колекции.");
-                            
+
                             destroy();
                         }
-                        else 
+                        else
                         {
                             _allAsics.Add(key, a);
                         }
@@ -393,7 +458,7 @@ namespace Zealot.manager
         {
             public const string RECEIVE_SCAN_DEVICES = NAME + ":ReceiveScanDevices";
             public const string ADD_ASIC = NAME + ":AddAsic";
-            public const string REMOVE_ASIC = NAME + ":AddAsic";
+            public const string REMOVE_ASIC = NAME + ":RemoveAsic";
 
             // Это для клинта.
             public struct Client
@@ -412,6 +477,20 @@ namespace Zealot.manager
                 /// Отписывается от получение сообщений от машинок.
                 /// </summary> <summary>
                 public const string UNSUBSCRIBE_TO_MESSAGE = NAME + ":unsubscribeToMessage";
+
+                /// <summary>
+                /// Клиент являющийся админом, через определеные промежуток времени
+                /// будет запрашивать машыны которые не сохранены в базе данных.
+                /// </summary> <summary>
+                public const string ADMIN_GET_NOT_DB_ASICS = NAME + ":AdminGetNotDBAsics";
+            }
+
+            public struct Asic
+            {
+                /// <summary>
+                /// Асик пытается получить AsicInit по своему программному маку.
+                /// </summary>
+                public const string GET_ASIC_INIT = NAME + ":GetAsicInit";
             }
 
 

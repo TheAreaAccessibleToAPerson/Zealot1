@@ -17,21 +17,7 @@ namespace Zealot.manager
         {
             _devicesManager = obj<Devices>(Devices.NAME);
 
-            // Оповещаем администратором о новых машинах
-            listen_message<byte[]>(BUS.ADMIN_LISTEN_JSON_ASICS)
-                .output_to((json) =>
-                {
-                    byte[] message = ServerMessage.GetMessageArray(ServerMessage.TCPType.ADD_NEW_SCAN_ASIC, json);
 
-                    foreach (MainClient client in _clients.Values)
-                    {
-                        if (client.IsAdmin())
-                        {
-                            //client.I_sendSSLBytesMessage.To(message);
-                        }
-                    }
-                },
-                Header.Events.CLIENT_WORK);
 
             // Сюда приходит сообщение содеждащее новое SSL подключение,
             // обрабатываемое событием Work Client
@@ -83,7 +69,6 @@ namespace Zealot.manager
             // Добовляет нового подключенного клинта.
             public const string DELETE_CLIENT = NAME + ":Delete client";
             public const string ADD_CLIENT = NAME + ":Add client";
-            public const string ADMIN_LISTEN_JSON_ASICS = NAME + ":AdminListenJSONAsics";
         }
     }
 
@@ -130,14 +115,9 @@ namespace Zealot.manager
         public struct TCPType
         {
             /// <summary>
-            /// Добавить новый отсканированый асик.
+            /// Поступили новые данные для асика.
             /// </summary> <summary>
-            public const int ADD_NEW_SCAN_ASIC = 0;
-
-            /// <summary>
-            /// Добавляет все отсканированые асик.
-            /// </summary> <summary>
-            public const int ADD_ALL_ASIC = 1;
+            public const int ASIC_DATA = 0;
         }
 
         public struct SSLType
