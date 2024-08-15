@@ -447,8 +447,14 @@ namespace Zealot.device.whatsminer
                         {
                             UniqueNumber = AsicInit.UniqueNumber,
 
-                            Culler1_power = Status.FanSpeedIn,
-                            Culler2_power = Status.FanSpeedOut,
+                            Culler1_power = Status.FanSpeedIn.Replace(",", ""),
+                            Culler2_power = Status.FanSpeedOut.Replace(",", ""),
+
+                            MiningPowerSize = Status.SM_GHS5s,
+                            MiningPower1Size = Status.SM0_GHS5s,
+                            MiningPower2Size = Status.SM1_GHS5s,
+                            MiningPower3Size = Status.SM2_GHS5s,
+                            MiningPowerName = "GH",
                         };
 
                         AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(data));
