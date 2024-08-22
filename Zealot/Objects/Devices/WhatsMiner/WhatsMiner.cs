@@ -11,12 +11,17 @@ namespace Zealot.device
     {
         public const string NAME = "WhatsMiner";
 
+        // Удаляем манишу из списка машин, разблокируем адрес для скана.
+        private IInput<IDevice> i_removeForDevices;
+
         void Construction()
         {
             Status.Address = Field.IPAddress;
 
             input_to(ref i_setState, Header.Events.SCAN_DEVICES, ISetState);
             input_to(ref I_requestInformation, Header.Events.SCAN_DEVICES, IRequestInformation);
+
+            send_message(ref i_removeForDevices, Devices.BUS.Asic.REMOTE_ASIC);
 
             send_echo_1_1<string, AsicInit>(ref I_asicInit, Devices.BUS.Asic.GET_ASIC_INIT)
                 .output_to((asicInit) =>
@@ -91,11 +96,18 @@ namespace Zealot.device
             Logger.I.To(this, $"start");
         }
 
-        void Destroyed() { }
+        void Destroyed() 
+        {
+        }
 
         void Stop()
         {
             // Опишим из списка который хранит девайсы.
+            // Удалим ip текущей машины из списка который хранит адресса для игнорирования во время скана.
+            Logger.I.To(this, "stopping ...");
+            {
+                i_removeForDevices.To(this);
+            }
         }
 
         public float GetHashrate() => _hashrate;

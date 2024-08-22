@@ -64,9 +64,22 @@ namespace Zealot.manager
                     i_setState.To(State.RUNNING);
                 },
                 Header.Events.SYSTEM);
+
+            send_message(ref I_unsubscribeToAsicsMessage, Devices.BUS.Client.UNSUBSCRIBE_TO_MESSAGE);
         }
 
-        void Stop() { }
+        void Stop()
+        {
+            Logger.I.To(this, "stopping ...");
+            {
+                if (StateInformation.IsCallConstruction)
+                {
+                    // Отпишимся от получение сообщений.
+                    // Из машинок.
+                    I_unsubscribeToAsicsMessage.To(this);
+                }
+            }
+        }
 
         void Destruction()
         {

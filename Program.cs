@@ -10,6 +10,9 @@ namespace Butterfly
 
         public static void Main(string[] args)
         {
+            //Result1.InitializeIP();
+            Result1.Initialize();
+
             Butterfly.fly<Zealot.Header>(new Butterfly.Settings()
             {
                 Name = "Program",
@@ -55,6 +58,8 @@ namespace Butterfly
     {
         private static Dictionary<string, string> dic = new();
 
+        static int f = 0;
+
         public static void Initialize()
         {
             using (StreamReader reader = new StreamReader("mac.txt", false))
@@ -65,6 +70,31 @@ namespace Butterfly
 
                 foreach (string mac in macs)
                 {
+                    f++;
+                    Console.WriteLine($"MAC:[{mac}]");
+                    dic.Add(mac, "");
+                }
+            }
+
+            /*
+            using (StreamWriter writer = new StreamWriter("ip.txt", false))
+            {
+                //writer.WriteLine("KDJFKDJF");
+            }
+            */
+        }
+
+        public static void InitializeIP()
+        {
+            using (StreamReader reader = new StreamReader("ip.txt", false))
+            {
+                string[] macs = reader.ReadToEnd().Split("\n");
+                Console.WriteLine($"Получено {macs.Length} маков.");
+                count = macs.Length;
+
+                foreach (string mac in macs)
+                {
+                    f++;
                     Console.WriteLine($"MAC:[{mac}]");
                     dic.Add(mac, "");
                 }
@@ -86,13 +116,19 @@ namespace Butterfly
         {
             if (dic.ContainsKey(mac))
             {
+
+                using (StreamWriter writer = new StreamWriter("ip.txt", false))
+                {
+                    writer.WriteLine(address);
+                }
+
                 lock (locker)
                 {
                     Console.WriteLine($"{current_count})MAC:{mac} ip:{address}");
                     current_count++;
                     dic[mac] = address;
 
-                    if (current_count == 12)
+                    if (current_count == f)
                     {
                         Console.WriteLine("Все маки собраны.");
 
@@ -106,53 +142,54 @@ namespace Butterfly
                         {
                             writer.WriteLine(m);
                         }
+                    }
+                }
+            }
+        }
 
-                        /*
-                        string m = "";
-                        string ip = "";
-                        foreach (var value in dic)
-                        {
-                            m += value.Key + "\n";
-                            ip += value.Value + "\n";
-                        }
+        public static void ReiceveIS(string status, string address)
+        {
+            if (dic.ContainsKey(address))
+            {
+                lock (locker)
+                {
+                    Console.WriteLine($"{current_count})IP:{address} GHSav:{status}");
+                    current_count++;
+                    //dic[address] = status;
 
-                        string r = m + "\n" + ip;
-
-                        using (StreamWriter writer = new StreamWriter("ip.txt", false))
-                        {
-                            writer.WriteLine(r);
-                        }
-                        */
+                    using (StreamWriter writer = new StreamWriter("mac.txt", false))
+                    {
+                        writer.WriteLine(address + " " + status);
                     }
                 }
             }
         }
     }
+}
 
-    public class WhatsMinerInterface
-    {
-        public int rx_bytes { get; set; }
-        public string ifname { get; set; }
-        public int tx_bytes { get; set; }
-        public List<string> ipaddrs { get; set; }
-        public string gwaddr { get; set; }
-        public int tx_packets { get; set; }
-        public List<string> dnsaddrs { get; set; }
-        public int rx_packets { get; set; }
-        public string proto { get; set; }
-        public string id { get; set; }
-        public List<object> ip6addrs { get; set; }
-        public int uptime { get; set; }
-        public List<object> subdevices { get; set; }
-        public bool is_up { get; set; }
-        public string macaddr { get; set; }
-        public string type { get; set; }
-        public string name { get; set; }
-    }
+public class WhatsMinerInterface
+{
+    public int rx_bytes { get; set; }
+    public string ifname { get; set; }
+    public int tx_bytes { get; set; }
+    public List<string> ipaddrs { get; set; }
+    public string gwaddr { get; set; }
+    public int tx_packets { get; set; }
+    public List<string> dnsaddrs { get; set; }
+    public int rx_packets { get; set; }
+    public string proto { get; set; }
+    public string id { get; set; }
+    public List<object> ip6addrs { get; set; }
+    public int uptime { get; set; }
+    public List<object> subdevices { get; set; }
+    public bool is_up { get; set; }
+    public string macaddr { get; set; }
+    public string type { get; set; }
+    public string name { get; set; }
+}
 
-    public class PublicPrivateKeypairModel
-    {
-        public string Public { set; get; }
-        public string Private { set; get; }
-    }
+public class PublicPrivateKeypairModel
+{
+    public string Public { set; get; }
+    public string Private { set; get; }
 }

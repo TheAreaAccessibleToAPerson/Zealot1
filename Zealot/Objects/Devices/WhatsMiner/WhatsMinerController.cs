@@ -213,10 +213,6 @@ namespace Zealot.device.whatsminer
             }
         }
 
-        void Stop()
-        {
-        }
-
         protected void IRequestInformation(string url)
         {
             if (IsRunning == false) return;
@@ -288,209 +284,269 @@ namespace Zealot.device.whatsminer
         {
             if (IsRunning == false) return;
 
-            if (CurrentState == State.DOWNLOAD_MAC_AND_UPLOAD)
+            try
             {
-                int result = hellpers.WhatsMiner.ExtractMACAndUpload(str, out string error, out _MAC, out _uptime);
-                if (result == 0)
+                if (CurrentState == State.DOWNLOAD_MAC_AND_UPLOAD)
                 {
-                    if (_MAC != "")
+                    int result = hellpers.WhatsMiner.ExtractMACAndUpload(str, out string error, out _MAC, out _uptime);
+                    if (result == 0)
                     {
-                        Status.MAC = _MAC;
-
-                        //Result1.Reiceve(Field.IPAddress, _MAC);
-
-                        // Проверим по маку имеется ли такая машинка в наличии.
-                        if (isAddAsicToDictionary == false)
+                        if (_MAC != "")
                         {
-                            I_addAsicToDictionary.To();
+                            Status.MAC = _MAC;
+
+                            //Result1.Reiceve(Field.IPAddress, _MAC);
+                            //i_setState.To(State.DOWNLOAD_POOL);
+
+                            // Проверим по маку имеется ли такая машинка в наличии.
+                            if (isAddAsicToDictionary == false)
+                            {
+                                I_addAsicToDictionary.To();
+                            }
+                            else
+                            {
+                                // Проверим получили ли мы данные по этой машинки из быза данных.
+                                if (AsicInit != null)
+                                {
+                                    // Если информация об асике получена.
+                                    i_setState.To(State.DOWNLOAD_POOL);
+                                }
+                            }
                         }
                         else
                         {
-                            // Проверим получили ли мы данные по этой машинки из быза данных.
-                            if (AsicInit != null)
-                            {
-                                // Если информация об асике получена.
-                                i_setState.To(State.DOWNLOAD_POOL);
-                            }
+                            Logger.E.To(this, $"В результате парсинга был получен пустой мак.");
+
+                            destroy();
+
+                            return;
                         }
                     }
-                    else 
+                    else if (result == 1)
                     {
-                        Logger.E.To(this, $"В результате парсинга был получен пустой мак.");
+                        Logger.W.To(this, error);
+
+                        destroy();
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение мака и время работы из ватсмайнера.");
+
+                        destroy();
+                    }
+                }
+                else if (CurrentState == State.DOWNLOAD_POOL || CurrentState == State.ANOTHER_DOWNLOAD_POOL)
+                {
+                    int poolExtractResult = hellpers.WhatsMiner.ExtractPool(str, out string poolExtractResultInfo, out _pools);
+                    if (poolExtractResult == 0)
+                    {
+                        // Logger.I.To(this, poolExtractResultInfo);
+                    }
+                    else if (poolExtractResult == 1)
+                    {
+                        Logger.W.To(this, poolExtractResultInfo);
+
+                        destroy();
+
+                        return;
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение пуллов из ватсмайнера.");
+
+                        destroy();
+
+                        return;
+                    }
+
+                    int workerExtractResult = hellpers.WhatsMiner.ExtractWorker(str, out string workerExtractResultInfo, out _pools);
+                    if (workerExtractResult == 0)
+                    {
+                        //Logger.I.To(this, workerExtractResultInfo);
+                    }
+                    else if (poolExtractResult == 1)
+                    {
+                        Logger.W.To(this, workerExtractResultInfo);
+
+                        destroy();
+
+                        return;
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение воркеров из ватсмайнера.");
+
+                        destroy();
+
+                        return;
+                    }
+
+                    int passwordExtractResult = hellpers.WhatsMiner.ExtractPassword(str, out string passwordExtractResultInfo, out _passwords);
+                    if (passwordExtractResult == 0)
+                    {
+                        //Logger.I.To(this, passwordExtractResultInfo);
+                    }
+                    else if (passwordExtractResult == 1)
+                    {
+                        Logger.W.To(this, passwordExtractResultInfo);
+
+                        destroy();
+
+                        return;
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение паролей из ватсмайнера.");
+
+                        destroy();
+
+                        return;
+                    }
+
+                    i_setState.To(State.DOWNLOAD_POWER_MODE);
+                }
+                else if (CurrentState == State.DOWNLOAD_POWER_MODE)
+                {
+                    int powerExtractResult = hellpers.WhatsMiner.ExtractPowerMode(str, out string powerInfo, out _powerMode);
+                    if (powerExtractResult == 0)
+                    {
+                        //Logger.I.To(this, powerInfo);
+
+                        i_setState.To(State.DOWNLOAD_STATE);
+                    }
+                    else if (powerExtractResult == 1)
+                    {
+                        Logger.W.To(this, powerInfo);
+
+                        destroy();
+
+                        return;
+                    }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение power mode из ватсмайнера.");
 
                         destroy();
 
                         return;
                     }
                 }
-                else if (result == 1)
+                else if (CurrentState == State.DOWNLOAD_STATE)
                 {
-                    Logger.W.To(this, error);
+                    int extractMainPageResult =
+                        hellpers.WhatsMiner.ExtractMainPage(str, out string downloadStateInfo, ref Status);
 
-                    destroy();
-                }
-                else
-                {
-                    Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение мака и время работы из ватсмайнера.");
-
-                    destroy();
-                }
-            }
-            else if (CurrentState == State.DOWNLOAD_POOL || CurrentState == State.ANOTHER_DOWNLOAD_POOL)
-            {
-                int poolExtractResult = hellpers.WhatsMiner.ExtractPool(str, out string poolExtractResultInfo, out _pools);
-                if (poolExtractResult == 0)
-                {
-                    // Logger.I.To(this, poolExtractResultInfo);
-                }
-                else if (poolExtractResult == 1)
-                {
-                    Logger.W.To(this, poolExtractResultInfo);
-
-                    destroy();
-
-                    return;
-                }
-                else
-                {
-                    Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение пуллов из ватсмайнера.");
-
-                    destroy();
-
-                    return;
-                }
-
-                int workerExtractResult = hellpers.WhatsMiner.ExtractWorker(str, out string workerExtractResultInfo, out _pools);
-                if (workerExtractResult == 0)
-                {
-                    //Logger.I.To(this, workerExtractResultInfo);
-                }
-                else if (poolExtractResult == 1)
-                {
-                    Logger.W.To(this, workerExtractResultInfo);
-
-                    destroy();
-
-                    return;
-                }
-                else
-                {
-                    Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение воркеров из ватсмайнера.");
-
-                    destroy();
-
-                    return;
-                }
-
-                int passwordExtractResult = hellpers.WhatsMiner.ExtractPassword(str, out string passwordExtractResultInfo, out _passwords);
-                if (passwordExtractResult == 0)
-                {
-                    //Logger.I.To(this, passwordExtractResultInfo);
-                }
-                else if (passwordExtractResult == 1)
-                {
-                    Logger.W.To(this, passwordExtractResultInfo);
-
-                    destroy();
-
-                    return;
-                }
-                else
-                {
-                    Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение паролей из ватсмайнера.");
-
-                    destroy();
-
-                    return;
-                }
-
-                i_setState.To(State.DOWNLOAD_POWER_MODE);
-            }
-            else if (CurrentState == State.DOWNLOAD_POWER_MODE)
-            {
-                int powerExtractResult = hellpers.WhatsMiner.ExtractPowerMode(str, out string powerInfo, out _powerMode);
-                if (powerExtractResult == 0)
-                {
-                    //Logger.I.To(this, powerInfo);
-
-                    i_setState.To(State.DOWNLOAD_STATE);
-                }
-                else if (powerExtractResult == 1)
-                {
-                    Logger.W.To(this, powerInfo);
-
-                    destroy();
-
-                    return;
-                }
-                else
-                {
-                    Logger.S_E.To(this, $"Вы получили неизвестный тип ошибки во время извлечение power mode из ватсмайнера.");
-
-                    destroy();
-
-                    return;
-                }
-            }
-            else if (CurrentState == State.DOWNLOAD_STATE)
-            {
-                int extractMainPageResult =
-                    hellpers.WhatsMiner.ExtractMainPage(str, out string downloadStateInfo, ref Status);
-
-                if (extractMainPageResult == 0)
-                {
-                    Logger.I.To(this, $"Отправляем сообщение клиeнтам.");
-
-                    if (AsicInit != null)
+                    if (extractMainPageResult == 0)
                     {
-                        OutputDataJson data = new OutputDataJson()
+                        //Logger.I.To(this, $"Отправляем сообщение клиeнтам.");
+
+                        if (AsicInit != null)
                         {
-                            UniqueNumber = AsicInit.UniqueNumber,
+                            string temp1 = Status.SM0_EffectiveChips; string temp1buffer = "";
+                            if (temp1.Length == 5)
+                            {
+                                temp1buffer += temp1[0];
+                                temp1buffer += temp1[1];
+                            }
+                            else temp1buffer = "0";
 
-                            Culler1_power = Status.FanSpeedIn.Replace(",", ""),
-                            Culler2_power = Status.FanSpeedOut.Replace(",", ""),
+                            string temp2 = Status.SM1_EffectiveChips; string temp2buffer = "";
+                            if (temp2.Length == 5)
+                            {
+                                temp2buffer += temp2[0];
+                                temp2buffer += temp2[1];
+                            }
+                            else temp2buffer = "0";
 
-                            MiningPowerSize = Status.SM_GHS5s,
-                            MiningPower1Size = Status.SM0_GHS5s,
-                            MiningPower2Size = Status.SM1_GHS5s,
-                            MiningPower3Size = Status.SM2_GHS5s,
-                            MiningPowerName = "GH",
-                        };
+                            string temp3 = Status.SM2_EffectiveChips; string temp3buffer = "";
+                            if (temp3.Length == 5)
+                            {
+                                temp3buffer += temp3[0];
+                                temp3buffer += temp3[1];
+                            }
+                            else temp3buffer = "0";
 
-                        AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(data));
+                            OutputDataJson data = new OutputDataJson()
+                            {
+                                UniqueNumber = AsicInit.UniqueNumber,
 
-                        i_setState.To(State.WAIT_STATE);
+                                Culler1_power = Status.FanSpeedIn.Replace(",", ""),
+                                Culler2_power = Status.FanSpeedOut.Replace(",", ""),
+
+                                WorkTime = Status.Elapsed,
+                                Mode = Status.PowerMode,
+
+                                IPAddress = Field.IPAddress,
+
+                                MiningPowerSize = Status.SM_GHS5s,
+                                MiningPower1Size = Status.SM0_GHS5s,
+                                MiningPower2Size = Status.SM1_GHS5s,
+                                MiningPower3Size = Status.SM2_GHS5s,
+                                MiningPowerName = "GH",
+
+                                Temp1 = temp1buffer,
+                                Temp2 = temp2buffer,
+                                Temp3 = temp3buffer,
+                            };
+
+                            if (Status.Pool1_Active == "true")
+                                data.PoolActiveURL = "1)" + Status.Pool1_URL;
+                            else if (Status.Pool2_Active == "true")
+                                data.PoolActiveURL = "2)" + Status.Pool2_URL;
+                            else if (Status.Pool2_Active == "true")
+                                data.PoolActiveURL = "3" + Status.Pool2_URL;
+                            else
+                                data.PoolActiveURL = "N/A";
+
+
+                            //Result1.Reiceve(Field.IPAddress, _MAC);
+                            //Result1.Reiceve(Field.IPAddress, _MAC);
+                            //Result1.ReiceveIS(Status.SM_GHS5s,Field.IPAddress);
+
+                            AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(data));
+                            //AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(Status));
+
+                            i_setState.To(State.WAIT_STATE);
+                        }
+                        else
+                        {
+                            Logger.S_E.To(this, $"В момент отправки сообщения от асика клинтам поле AsicInit окозалось null.");
+
+                            destroy();
+
+                            return;
+                        }
                     }
-                    else 
+                    else if (extractMainPageResult == 1)
                     {
-                        Logger.S_E.To(this, $"В момент отправки сообщения от асика клинтам поле AsicInit окозалось null.");
+                        // Удалось получить не все поля.
+                        Logger.I.To(this, downloadStateInfo);
+                    }
+                    else if (extractMainPageResult == 2)
+                    {
+                        Logger.W.To(this, downloadStateInfo);
+
+                        destroy();
+
+                        return;
+                    }
+                    else
+                    {
+                        Logger.W.To(this, "Вы получили неизвестный тип ошибки во время извлечения данных с главной страницы с ватсмайнера.");
 
                         destroy();
 
                         return;
                     }
                 }
-                else if (extractMainPageResult == 1)
-                {
-                    // Удалось получить не все поля.
-                    Logger.I.To(this, downloadStateInfo);
-                }
-                else if (extractMainPageResult == 2)
-                {
-                    Logger.W.To(this, downloadStateInfo);
+            }
+            catch (Exception ex)
+            {
+                Logger.S_E.To(this, ex.ToString());
 
-                    destroy();
+                destroy();
 
-                    return;
-                }
-                else
-                {
-                    Logger.W.To(this, "Вы получили неизвестный тип ошибки во время извлечения данных с главной страницы с ватсмайнера.");
-
-                    destroy();
-
-                    return;
-                }
+                return;
             }
         }
 
@@ -511,9 +567,9 @@ namespace Zealot.device.whatsminer
 
     public class WhatsMinerInterface
     {
-        public long rx_bytes { get; set; }
+        public Int32 rx_bytes { get; set; }
         public string ifname { get; set; }
-        public long tx_bytes { get; set; }
+        public ulong tx_bytes { get; set; }
         public List<string> ipaddrs { get; set; }
         public string gwaddr { get; set; }
         public long tx_packets { get; set; }

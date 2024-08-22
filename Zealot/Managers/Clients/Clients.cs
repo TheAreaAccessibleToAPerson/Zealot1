@@ -17,8 +17,6 @@ namespace Zealot.manager
         {
             _devicesManager = obj<Devices>(Devices.NAME);
 
-
-
             // Сюда приходит сообщение содеждащее новое SSL подключение,
             // обрабатываемое событием Work Client
             listen_message<TcpClient>(BUS.ADD_CLIENT)

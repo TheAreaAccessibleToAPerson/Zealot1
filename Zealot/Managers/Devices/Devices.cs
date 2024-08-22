@@ -94,11 +94,16 @@ namespace Zealot.manager
                 {
                     string clientID = client.GetClientID();
 
+                    string info = "Devices:\n";
+                    int index = 0;
                     foreach (AsicInit asic in _allAsics.Values)
                         if (clientID == asic.Client.ID)
                         {
+                            info += $"Unsubscribe -> {++index})SN:{asic.SN.SN3}, MAC:{asic.MAC.MAC3}, Location[Name:{asic.Location.Name}, StandNumber:{asic.Location.StandNumber}, SlotIndex:{asic.Location.SlotIndex}]";
                             asic.ClientUnsubscribeToReceiveMessage(client);
                         }
+
+                    Logger.I.To(this, $"Отписываем клиента {client.GetKey()} от получения сообщений с машинок.\n" + info);
                 },
                 Header.Events.WORK_DEVICE);
 
@@ -107,6 +112,8 @@ namespace Zealot.manager
                 {
                     if (client.IsAdmin())
                     {
+                        Logger.I.To(this, $"Получение общей информации о машинках находящихся на площадке для клиента с правами Admin:{client.GetKey()}");
+
                         @return.To(_allAsics.Values.ToList());
                     }
                     else
@@ -212,14 +219,69 @@ namespace Zealot.manager
                             }
                             else if (mac == "")
                             {
-                                Logger.W.To(this, $"Вам поступило устройсва без мака(IPAddress{device.GetAddress()})");
+                                Logger.W.To(this, $"Вам поступило устройсва без мака(IPAddress:{device.GetAddress()})");
 
-                                device.Destroy($"Вам поступило устройсва без мака(IPAddress{device.GetAddress()})");
+                                device.Destroy($"Вам поступило устройсва без мака(IPAddress:{device.GetAddress()})");
                             }
                         }
 
                         @return.To(false);
                     }
+                },
+                Header.Events.WORK_DEVICE);
+
+            listen_message<IDevice>(BUS.Asic.REMOTE_ASIC)
+                .output_to((device) =>
+                {
+                    string address = device.GetAddress();
+                    string mac = device.GetMAC();
+
+                    string info = "";
+
+                    if (_ipAddressDevices.Contains(address))
+                    {
+                        info += $"Адресс [{address}] был разлокирован для сканера девайсов.";
+
+                        _ipAddressDevices.Remove(address);
+                    }
+                    else
+                    {
+                        if (mac != "")
+                        {
+                            if (_scanDevices.ContainsKey(mac))
+                            {
+                                Logger.S_E.To(this, $"Вы попытались разблокировать адресс [{address}] для сканера девайсов, но данный адресс небыл " + 
+                                    $"заблокирован ранее, машина под данных ip адрессом и мак адрессом [{mac}] была добавлена ранее в список девайсов.");
+                            }
+                            else Logger.S_E.To(this, $"Попытка удалить машину из списка отсканированых из сети машин, но машины " + 
+                                    $"записаной по мак адресу [{mac}] нету, так же не удалось разблокировать адресс [{address}] для сканера " + 
+                                    $"девайсов, так как данный адресс не был заблокирован ранее.");
+
+                            destroy();
+
+                            return;
+                        }
+                    }
+
+                    if (mac != "")
+                    {
+                        if (_scanDevices.ContainsKey(mac))
+                        {
+                            info += $"Асик хронящийся по маку [{mac}] в спике полученых машин их сети был удален.";
+
+                            _scanDevices.Remove(mac);
+                        }
+                        else 
+                        {
+                            Logger.S_E.To(this, $"Неудалось удалить асик по маку [{mac}] из списка устройсв полученых из сети, так как он небыл записан туда ранее");
+
+                            destroy();
+
+                            return;
+                        }
+                    }
+
+                    Logger.I.To(this, info);
                 },
                 Header.Events.WORK_DEVICE);
 
@@ -267,9 +329,12 @@ namespace Zealot.manager
                                 {
                                     Logger.W.To(this, $"Уже добавлен WhatsMiner по аддресу(ключy) {address}.");
                                 }
-                                else 
+                                else
                                 {
                                     obj<WhatsMiner>(address, setting);
+
+                                    Logger.I.To(this, $"Из сети поступил WhatsMiner находящийся по адрессу {address}.\n" +
+                                        $"Адресс {address} заблокирован для дальнейшего сканирования.");
 
                                     _ipAddressDevices.Add(address);
                                 }
@@ -491,6 +556,12 @@ namespace Zealot.manager
                 /// Асик пытается получить AsicInit по своему программному маку.
                 /// </summary>
                 public const string GET_ASIC_INIT = NAME + ":GetAsicInit";
+
+                /// <summary>
+                /// Удаляем машину и списка машин полученых их сети,
+                /// так же удаляем адресс данной машины из списка заблокированых адрессов для сканирования.
+                /// </summary> 
+                public const string REMOTE_ASIC = NAME + ":RemoveAsic";
             }
 
 
