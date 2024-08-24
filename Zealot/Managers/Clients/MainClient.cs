@@ -184,8 +184,6 @@ namespace Zealot.manager
             {
                 try
                 {
-                    Console($"Send bytes tcp message. Length:{message.Length}");
-
                     _tcpClient.Client.Send(message);
                 }
                 catch (Exception ex)

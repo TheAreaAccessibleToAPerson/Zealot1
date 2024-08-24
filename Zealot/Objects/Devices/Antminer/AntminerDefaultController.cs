@@ -8,7 +8,7 @@ namespace Zealot.device
     /// <summary>
     /// Стандартная прошика. 
     /// </summary>
-    public sealed class AntminerDefault : Controller.Board.LocalField<Setting>, IDevice
+    public abstract class AntminerDefaultController : Controller.Board.LocalField<Setting>, IDevice
     {
         public struct State
         {
@@ -16,37 +16,39 @@ namespace Zealot.device
             public const string GET_SYSTEM_INFO = "GetSystemInfo";
             public const string GET_POOL = "GetPool";
             public const string GET_STATS = "GetStats";
+
+            public const string UPDATE = "Update";
+            public const string WAIT = "WaitState";
         }
 
-        private readonly Status _status = new Status();
+        public readonly Status Status = new Status();
 
         private CookieContainer _cookeis = new CookieContainer();
 
         protected string CurrentState { set; get; } = State.NONE;
 
-        protected bool IsRunning { set; get; } = true;
+        protected bool IsRun { set; get; } = true;
 
-        private IInput<string> I_requestInformation;
-        private IInput<string> i_setState;
+        protected IInput<string> I_requestInformation;
+        protected IInput<string> I_setState;
+        protected IInput<string> I_setState3sDelay;
 
-        void Construction()
-        {
-            input_to(ref i_setState, Header.Events.SCAN_DEVICES, ISetState);
-            input_to(ref I_requestInformation, Header.Events.SCAN_DEVICES, IRequestInformation);
-        }
+        //************ASIC INIT****************
+        // Зарпашивает данные об асике.
+        protected AsicInit AsicInit;
+        protected IInput<string> I_asicInit;
+        protected IInput<byte[]> I_sendBytesMessageToClients;
+        protected IInput<string> I_sendStringMessageToClients;
 
-        void Start()
-        {
-            Logger.I.To(this, $"run starting ...");
-            {
-                i_setState.To(State.GET_SYSTEM_INFO);
-            }
-            Logger.I.To(this, $"end starting.");
-        }
+        //**********ADD NEW ASIC TO DEVICES MANAGER***********
+        protected IInput I_addAsicToDictionary;
+        private bool isAddAsicToDictionary = false;
+
+        protected string _MAC = "";
 
         protected void ISetState(string nextState)
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
             lock (StateInformation.Locker)
             {
@@ -54,9 +56,9 @@ namespace Zealot.device
 
                 if (nextState == State.GET_SYSTEM_INFO)
                 {
-                    if (CurrentState == State.NONE)
+                    if (CurrentState == State.NONE || CurrentState == State.UPDATE)
                     {
-                        Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
+                        //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
 
                         CurrentState = State.GET_SYSTEM_INFO;
 
@@ -64,13 +66,13 @@ namespace Zealot.device
                     }
                     else Logger.S_E.To(this, $"Попытка сменить состояние с [{CurrentState}] на " +
                         $"[{nextState}]. Данную операцию можно произвести только если текущее " +
-                        $" состояние равно [{State.NONE}]");
+                        $" состояние равно [{State.NONE}] или [{State.UPDATE}]");
                 }
                 else if (nextState == State.GET_POOL)
                 {
                     if (CurrentState == State.GET_SYSTEM_INFO)
                     {
-                        Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
+                        //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
 
                         CurrentState = State.GET_POOL;
 
@@ -84,7 +86,7 @@ namespace Zealot.device
                 {
                     if (CurrentState == State.GET_POOL)
                     {
-                        Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
+                        //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
 
                         CurrentState = State.GET_STATS;
 
@@ -94,12 +96,40 @@ namespace Zealot.device
                         $"[{nextState}]. Данную операцию можно произвести только если текущее " +
                         $" состояние равно [{State.GET_POOL}]");
                 }
+                else if (nextState == State.WAIT)
+                {
+                    if (CurrentState == State.GET_STATS)
+                    {
+                        //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
+
+                        CurrentState = State.WAIT;
+
+                        I_setState.To(State.UPDATE);
+                    }
+                    else Logger.S_E.To(this, $"Попытка сменить состояние с [{CurrentState}] на " +
+                        $"[{nextState}]. Данную операцию можно произвести только если текущее " +
+                        $" состояние равно [{State.GET_STATS}] ");
+                }
+                else if (nextState == State.UPDATE)
+                {
+                    if (CurrentState == State.WAIT)
+                    {
+                        //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
+
+                        CurrentState = State.UPDATE;
+
+                        I_setState.To(State.GET_SYSTEM_INFO);
+                    }
+                    else Logger.S_E.To(this, $"Попытка сменить состояние с [{CurrentState}] на " +
+                        $"[{nextState}]. Данную операцию можно произвести только если текущее " +
+                        $" состояние равно [{State.UPDATE}] ");
+                }
             }
         }
 
         protected void IRequestInformation(string url)
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
             lock (StateInformation.Locker)
             {
@@ -141,6 +171,8 @@ namespace Zealot.device
                                 Logger.W.To(this, $"Неудалось получить данные у ANMAINER.[{CurrentState}] {ex}");
 
                                 destroy();
+
+                                return;
                             }
                         }
 
@@ -157,117 +189,187 @@ namespace Zealot.device
 
         void Result(string str)
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
             lock (StateInformation.Locker)
             {
                 if (StateInformation.IsDestroy || StateInformation.IsStart == false) return;
 
-                if (CurrentState == State.GET_SYSTEM_INFO)
+                try
                 {
-                    AntminerSystemInfo systemInfo = JsonSerializer.Deserialize<AntminerSystemInfo>(str);
-
-                    if (systemInfo != null)
+                    if (CurrentState == State.GET_SYSTEM_INFO)
                     {
-                        _status.model = systemInfo.minertype;
-                        _status.mac = systemInfo.macaddr;
+                        AntminerSystemInfo systemInfo = JsonSerializer.Deserialize<AntminerSystemInfo>(str);
 
-                        if (systemInfo.serinum != "")
-                            _status.sn1 = systemInfo.serinum;
-                    }
-
-                    i_setState.To(State.GET_POOL);
-                }
-                else if (CurrentState == State.GET_POOL)
-                {
-                    AntminerPoolInfo poolInfo = JsonSerializer.Deserialize<AntminerPoolInfo>(str);
-
-                    if (poolInfo != null && poolInfo.POOLS.Count > 0)
-                    {
-                        _status.pool1addr = poolInfo.POOLS[0].url;
-                        _status.pool1name = poolInfo.POOLS[0].user;
-                        _status.pool1IsAlive = poolInfo.POOLS[0].status;
-                        _status.pool1accepted = poolInfo.POOLS[0].accepted.ToString();
-
-                        if (poolInfo.POOLS.Count > 1)
+                        if (systemInfo != null)
                         {
-                            _status.pool2addr = poolInfo.POOLS[1].url;
-                            _status.pool2name = poolInfo.POOLS[1].user;
-                            _status.pool2IsAlive = poolInfo.POOLS[1].status;
-                            _status.pool2accepted = poolInfo.POOLS[1].accepted.ToString();
+                            Status.MinerType = systemInfo.minertype;
+                            Status.model = systemInfo.minertype;
+                            Status.mac = systemInfo.macaddr;
+                            _MAC = Status.mac;
 
-                            if (poolInfo.POOLS.Count > 2)
+                            if (systemInfo.serinum != "")
+                                Status.sn1 = systemInfo.serinum;
+
+                            if (isAddAsicToDictionary == false)
                             {
-                                _status.pool2addr = poolInfo.POOLS[2].url;
-                                _status.pool2name = poolInfo.POOLS[2].user;
-                                _status.pool2IsAlive = poolInfo.POOLS[2].status;
-                                _status.pool2accepted = poolInfo.POOLS[2].accepted.ToString();
+                                isAddAsicToDictionary = true;
+
+                                I_addAsicToDictionary.To();
                             }
-                        }
-                    }
-
-                    i_setState.To(State.GET_STATS);
-                }
-                else if (CurrentState == State.GET_STATS)
-                {
-                    StatsInformation statsInformation = JsonSerializer.Deserialize<StatsInformation>(str);
-                    if (statsInformation != null)
-                    {
-                        List<StatsInformation.Stat> stat = statsInformation.STATS;
-                        if (stat != null && stat.Count > 0)
-                        {
-                            StatsInformation.Stat s = stat[0];
-
-                            TimeSpan ts = new TimeSpan(0, 0, s.elapsed);
-                            _status.elapsed = $"day:{ts.Days}, hour:{ts.Hours} min:{ts.Minutes} sec:{ts.Seconds}";
-
-                            _status.rateIdeal = s.rate_ideal.ToString();
-                            _status.rate_avg = s.rate_avg.ToString();
-                            _status.rateName = s.rate_unit;
-
-                            int[] fan = s.fan.ToArray();
-                            if (fan.Length == 4)
+                            else
                             {
-                                _status.fan1 = fan[0].ToString();
-                                _status.fan2 = fan[1].ToString();
-                                _status.fan3 = fan[2].ToString();
-                                _status.fan4 = fan[3].ToString();
-                            }
-
-                            List<StatsInformation.Chain> c = s.chain;
-                            if (c != null && c.Count > 0)
-                            {
-                                _status.rate1 = c[0].rate_real.ToString();
-                                _status.rate1Ideal = c[0].rate_ideal.ToString();
-
-                                int[] temp_pic = c[0].temp_pic.ToArray();
-                                if (temp_pic != null && temp_pic.Length == 4)
-                                    _status.chipTemp1 = c[0].temp_pic[3].ToString();
-
-                                if (c.Count > 1)
+                                // Проверим получили ли мы данные по этой машинки из быза данных.
+                                if (AsicInit != null)
                                 {
-                                    _status.rate2 = c[1].rate_real.ToString();
-                                    _status.rate2Ideal = c[1].rate_ideal.ToString();
-
-                                    temp_pic = c[1].temp_pic.ToArray();
-                                    if (temp_pic != null && temp_pic.Length == 4)
-                                        _status.chipTemp1 = c[1].temp_pic[3].ToString();
-
-                                    if (c.Count > 2)
-                                    {
-                                        _status.rate3 = c[2].rate_real.ToString();
-                                        _status.rate3Ideal = c[2].rate_ideal.ToString();
-
-                                        temp_pic = c[2].temp_pic.ToArray();
-                                        if (temp_pic != null && temp_pic.Length == 4)
-                                            _status.chipTemp1 = c[2].temp_pic[3].ToString();
-                                    }
+                                    // Если информация об асике получена.
+                                    I_setState.To(State.GET_POOL);
                                 }
                             }
                         }
                     }
+                    else if (CurrentState == State.GET_POOL)
+                    {
+                        AntminerPoolInfo poolInfo = JsonSerializer.Deserialize<AntminerPoolInfo>(str);
 
-                    Console("\n" + _status.GetShow());
+                        if (poolInfo != null && poolInfo.POOLS.Count > 0)
+                        {
+                            Status.pool1addr = poolInfo.POOLS[0].url;
+                            Status.pool1name = poolInfo.POOLS[0].user;
+                            Status.pool1IsAlive = poolInfo.POOLS[0].status;
+                            Status.pool1accepted = poolInfo.POOLS[0].accepted.ToString();
+
+                            if (poolInfo.POOLS.Count > 1)
+                            {
+                                Status.pool2addr = poolInfo.POOLS[1].url;
+                                Status.pool2name = poolInfo.POOLS[1].user;
+                                Status.pool2IsAlive = poolInfo.POOLS[1].status;
+                                Status.pool2accepted = poolInfo.POOLS[1].accepted.ToString();
+
+                                if (poolInfo.POOLS.Count > 2)
+                                {
+                                    Status.pool2addr = poolInfo.POOLS[2].url;
+                                    Status.pool2name = poolInfo.POOLS[2].user;
+                                    Status.pool2IsAlive = poolInfo.POOLS[2].status;
+                                    Status.pool2accepted = poolInfo.POOLS[2].accepted.ToString();
+                                }
+                            }
+                        }
+
+                        I_setState.To(State.GET_STATS);
+                    }
+                    else if (CurrentState == State.GET_STATS)
+                    {
+                        StatsInformation statsInformation = JsonSerializer.Deserialize<StatsInformation>(str);
+                        if (statsInformation != null)
+                        {
+                            List<StatsInformation.Stat> stat = statsInformation.STATS;
+                            if (stat != null && stat.Count > 0)
+                            {
+                                StatsInformation.Stat s = stat[0];
+
+                                TimeSpan ts = new TimeSpan(0, 0, s.elapsed);
+                                Status.elapsed = $"{ts.Days}d {ts.Hours}h {ts.Minutes}m {ts.Seconds}s";
+
+                                Status.rateIdeal = s.rate_ideal.ToString();
+                                Status.rate = s.rate_5s.ToString();
+                                Status.rateName = s.rate_unit;
+
+                                int[] fan = s.fan.ToArray();
+                                if (fan.Length == 4)
+                                {
+                                    Status.fan1 = fan[0].ToString();
+                                    Status.fan2 = fan[1].ToString();
+                                    Status.fan3 = fan[2].ToString();
+                                    Status.fan4 = fan[3].ToString();
+                                }
+
+                                List<StatsInformation.Chain> c = s.chain;
+
+                                if (c != null && c.Count > 0)
+                                {
+                                    Status.rate1 = c[0].rate_real.ToString();
+                                    Status.rate1Ideal = c[0].rate_ideal.ToString();
+
+                                    int[] temp_pic = c[0].temp_pic.ToArray();
+                                    if (temp_pic != null && temp_pic.Length >= 2)
+                                        Status.chipTemp1 = c[0].temp_chip[1].ToString();
+
+                                    if (c.Count > 1)
+                                    {
+                                        Status.rate2 = c[1].rate_real.ToString();
+                                        Status.rate2Ideal = c[1].rate_ideal.ToString();
+
+                                        temp_pic = c[1].temp_pic.ToArray();
+                                        if (temp_pic != null && temp_pic.Length >= 2)
+                                            Status.chipTemp2 = c[1].temp_chip[1].ToString();
+
+                                        if (c.Count > 2)
+                                        {
+                                            Status.rate3 = c[2].rate_real.ToString();
+                                            Status.rate3Ideal = c[2].rate_ideal.ToString();
+
+                                            temp_pic = c[2].temp_pic.ToArray();
+                                            if (temp_pic != null && temp_pic.Length >= 2)
+                                                Status.chipTemp3 = c[2].temp_chip[1].ToString();
+                                        }
+                                    }
+
+                                    OutputDataJson data = new OutputDataJson()
+                                    {
+                                        UniqueNumber = AsicInit.UniqueNumber,
+
+                                        Culler1_power = Status.fan1,
+                                        Culler2_power = Status.fan2,
+                                        Culler3_power = Status.fan3,
+                                        Culler4_power = Status.fan4,
+
+                                        WorkTime = Status.elapsed,
+                                        //Mode = Status.rate
+                                        IPAddress = Field.IPAddress,
+
+                                        //MiningPowerSize = Status.rate_avg.Replace(",", ""),
+                                        //MiningPower1Size = Status.rate1.Replace(",", ""),
+                                        //MiningPower2Size = Status.rate2.Replace(",", ""),
+                                        //MiningPower3Size = Status.rate3.Replace(",", ""),
+                                        MiningPowerSize = Status.rate.Contains(",") ?
+                                            Status.rate.Split(',')[0] : Status.rate,
+
+                                        MiningPower1Size = Status.rate1,
+                                        MiningPower2Size = Status.rate2,
+                                        MiningPower3Size = Status.rate3,
+
+                                        MiningPowerName = "GH",
+
+                                        Temp1 = Status.chipTemp1,
+                                        Temp2 = Status.chipTemp2,
+                                        Temp3 = Status.chipTemp3,
+                                    };
+
+                                    /*
+                                    if (Status.Pool1_Active == "true")
+                                        data.PoolActiveURL = "1)" + Status.Pool1_URL;
+                                    else if (Status.Pool2_Active == "true")
+                                        data.PoolActiveURL = "2)" + Status.Pool2_URL;
+                                    else if (Status.Pool2_Active == "true")
+                                        data.PoolActiveURL = "3" + Status.Pool2_URL;
+                                    else
+                                        data.PoolActiveURL = "N/A";
+                                        */
+
+                                    AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(data));
+
+                                    I_setState3sDelay.To(State.WAIT);
+                                }
+                            }
+                        }
+
+                        //Console("\n" + Status.GetShow());
+                    }
+                }
+                catch
+                {
+                    destroy();
                 }
             }
         }
@@ -315,20 +417,14 @@ namespace Zealot.device
             throw new NotImplementedException();
         }
 
-        public string GetMAC()
-        {
-            throw new NotImplementedException();
-        }
+        public string GetMAC() => _MAC;
 
         public void SetMAC()
         {
             throw new NotImplementedException();
         }
 
-        public string GetAddress()
-        {
-            throw new NotImplementedException();
-        }
+        public string GetAddress() => Status.Address;
 
         public string GetModel()
         {
@@ -487,7 +583,9 @@ namespace Zealot.device
 
         public void Destroy(string destroyInfo)
         {
-            throw new NotImplementedException();
+            Logger.I.To(this, $"Внешний вызов destroy(). Причина:{destroyInfo}.");
+
+            destroy();
         }
 
         public struct URL
@@ -603,6 +701,9 @@ namespace Zealot.device
 
     public class Status
     {
+        public string MinerType { set; get; }
+        public string Address { set; get; }
+
         public string GetShow()
         {
             string result = "";
@@ -613,7 +714,7 @@ namespace Zealot.device
                 result += $"MAC:{mac}\n";
                 result += $"SN1:{sn1}\n";
                 result += $"SN2:{sn2}\n";
-                result += $"RateAvg:{rate_avg}\n";
+                result += $"RateAvg:{rate}\n";
                 result += $"Elapsed:{elapsed}\n";
 
                 result += $"Pool1Addr:{pool1addr}\n";
@@ -664,7 +765,7 @@ namespace Zealot.device
         // назначеный серийный номер из устройсва.
         public string sn2 { get; set; } = "";
         // Общий хершейт машины.
-        public string rate_avg { get; set; } = "";
+        public string rate { get; set; } = "";
         // Время работы.
         public string elapsed { get; set; } = "";
 

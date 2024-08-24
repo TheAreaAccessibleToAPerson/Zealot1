@@ -27,6 +27,7 @@ namespace Zealot
             /// Работа с диопазоном сети.
             /// </summary> <summary>
             public const string SCAN_DEVICES = "ScanDevices";
+            public const string SCAN_DEVICES_3s_DELAY_EVENT = "ScanDevices3sDelay";
             public const int SCAN_DEVICES_TIME_DELAY = 5;
 
             /// <summary>
@@ -72,6 +73,7 @@ namespace Zealot
             listen_events(Events.SEND_MESSAGE_TO_CLIENT, Events.SEND_MESSAGE_TO_CLIENT);
             listen_events(Events.RECEIVE_MESSAGE_FROM_CLIENT, Events.RECEIVE_MESSAGE_FROM_CLIENT);
             listen_events(Events.SCAN_DEVICES, Events.SCAN_DEVICES);
+            listen_events(Events.SCAN_DEVICES_3s_DELAY_EVENT, Events.SCAN_DEVICES, 3000);
             listen_events(Events.WORK_DEVICE, Events.WORK_DEVICE);
             listen_events(Events.REQUEST_DEVICES_INFORMATION, Events.REQUEST_DEVICES_INFORMATION);
             listen_events(Events.EXTRACT_FROM_RESULT_REQUEST_DEVICES_INFORMATION, Events.EXTRACT_FROM_RESULT_REQUEST_DEVICES_INFORMATION);

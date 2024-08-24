@@ -10,8 +10,8 @@ namespace Zealot.script
     {
         public static void StartScript1()
         {
-            var m = MongoDB.Client.GetDatabase(DB.NAME);
-            m.DropCollection(DB.AsicsCollections.NAME);
+            //var m = MongoDB.Client.GetDatabase(DB.NAME);
+            //m.DropCollection(DB.AsicsCollections.NAME);
         }
         //5 - это id тестового клиeнта.
         public static void StartScript2()
@@ -55,6 +55,76 @@ namespace Zealot.script
             "", "", ""
             );
         }
+        public static void StartScript3()
+        {
+            AddToDB("id000005", "5", true, 
+            "", "", "Antminer T21",
+            "190T",
+            // SN
+            "", "", "DGAHF2ABDJBAG0CD5",
+            // MAC
+            "", "", "02:6E:26:9D:B5:49",
+            "ЦЕХ", "11-9", "9", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+        }
+
+        public static void StartScript4()
+        {
+            AddToDB("id000006", "5", true, 
+            "", "", "Antminer S19k Pro",
+            "115T",
+            // SN
+            "", "", "JYZZAEBBCAAJF0BWS",
+            // MAC
+            "", "", "02:6E:FE:C6:D6:FD",
+            "ЦЕХ", "1-1", "1", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+        }
+
+        public static void StartScript5()
+        {
+            AddToDB("id000007", "5", true, 
+            "", "", "Antminer D9",
+            "1770Gh",
+            // SN
+            "", "", "JYZZEKABCABBG0060",
+            // MAC
+            "", "", "42:33:39:83:2D:B1",
+            "ЦЕХ", "6-10", "8", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+        }
+
+        public static void StartScript6()
+        {
+            AddToDB("id000008", "5", true, 
+            "", "", "Antminer E9 Pro",
+            "3680M",
+            // SN
+            "", "", "NGSBETRBCJDAA03B7",
+            // MAC
+            "", "", "78:07:19:A1:27:32",
+            "ЦЕХ", "1-8", "15", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+        }
+
+        public static void RemoveDataBase()
+        {
+            Zealot.MongoDB.TryRemoveDatabase(DB.NAME, out string info);
+            System.Console.WriteLine(info);
+        }
+
 
         private static void AddToDB(string uniqueNumber, string clientID, bool isRunning,
             // Программный, москва, по факту(наклейка)

@@ -11,7 +11,7 @@ namespace Butterfly
         public static void Main(string[] args)
         {
             //Result1.InitializeIP();
-            Result1.Initialize();
+            //Result1.Initialize();
 
             Butterfly.fly<Zealot.Header>(new Butterfly.Settings()
             {
@@ -169,9 +169,9 @@ namespace Butterfly
 
 public class WhatsMinerInterface
 {
-    public int rx_bytes { get; set; }
+    public ulong rx_bytes { get; set; }
     public string ifname { get; set; }
-    public int tx_bytes { get; set; }
+    public ulong tx_bytes { get; set; }
     public List<string> ipaddrs { get; set; }
     public string gwaddr { get; set; }
     public int tx_packets { get; set; }

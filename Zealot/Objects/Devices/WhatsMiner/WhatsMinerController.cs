@@ -7,7 +7,7 @@ namespace Zealot.device.whatsminer
 {
     public abstract class ControllerBoard : Butterfly.Controller.Board.LocalField<Setting>
     {
-        public bool IsRunning = true;
+        protected bool IsRun = true;
 
         public struct State
         {
@@ -25,7 +25,7 @@ namespace Zealot.device.whatsminer
             public const string DOWNLOAD_STATE = "DowloadState";
 
             // Все данные выкачены, ожидаем запусука обновления.
-            public const string WAIT_STATE = "WaitState";
+            public const string WAIT = "WaitState";
 
             // Обновляет все данные кроме мака.
             public const string UPDATE = "Update";
@@ -36,6 +36,7 @@ namespace Zealot.device.whatsminer
         CookieContainer cookeis = new CookieContainer();
 
         protected IInput<string> i_setState;
+        protected IInput<string> i_setState5sDelay;
         protected IInput<string> i_extractResult;
 
         private static int index = 0;
@@ -49,7 +50,6 @@ namespace Zealot.device.whatsminer
         protected string _uptimeString = "";
 
         protected float _hashrate = 0.0f;
-
         protected string _MAC = "";
         protected string _coinType = "";
         protected string[] _pools = new string[3];
@@ -79,7 +79,7 @@ namespace Zealot.device.whatsminer
 
         protected void ISetState(string nextState)
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
             lock (StateInformation.Locker)
             {
@@ -170,13 +170,13 @@ namespace Zealot.device.whatsminer
                         $"[{nextState}]. Данную операцию можно произвести только если текущее " +
                         $" состояние равно [{State.DOWNLOAD_POWER_MODE}] ");
                 }
-                else if (nextState == State.WAIT_STATE)
+                else if (nextState == State.WAIT)
                 {
                     if (CurrentState == State.DOWNLOAD_STATE)
                     {
                         //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
 
-                        CurrentState = State.WAIT_STATE;
+                        CurrentState = State.WAIT;
 
                         i_setState.To(State.UPDATE);
                     }
@@ -186,7 +186,7 @@ namespace Zealot.device.whatsminer
                 }
                 else if (nextState == State.UPDATE)
                 {
-                    if (CurrentState == State.WAIT_STATE)
+                    if (CurrentState == State.WAIT)
                     {
                         //Logger.I.To(this, $"Сменил состояние [{CurrentState}]->[{nextState}]");
 
@@ -205,9 +205,9 @@ namespace Zealot.device.whatsminer
 
         public void Update()
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
-            if (CurrentState == State.WAIT_STATE)
+            if (CurrentState == State.WAIT)
             {
                 i_setState.To(State.UPDATE);
             }
@@ -215,7 +215,7 @@ namespace Zealot.device.whatsminer
 
         protected void IRequestInformation(string url)
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
             lock (StateInformation.Locker)
             {
@@ -282,7 +282,7 @@ namespace Zealot.device.whatsminer
 
         void Result(string str)
         {
-            if (IsRunning == false) return;
+            if (IsRun == false) return;
 
             try
             {
@@ -301,6 +301,8 @@ namespace Zealot.device.whatsminer
                             // Проверим по маку имеется ли такая машинка в наличии.
                             if (isAddAsicToDictionary == false)
                             {
+                                isAddAsicToDictionary = true;
+
                                 I_addAsicToDictionary.To();
                             }
                             else
@@ -506,7 +508,7 @@ namespace Zealot.device.whatsminer
                             AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(data));
                             //AsicInit.SendDataMessage(JsonSerializer.SerializeToUtf8Bytes(Status));
 
-                            i_setState.To(State.WAIT_STATE);
+                            i_setState.To(State.WAIT);
                         }
                         else
                         {
@@ -540,7 +542,7 @@ namespace Zealot.device.whatsminer
                     }
                 }
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
                 Logger.S_E.To(this, ex.ToString());
 

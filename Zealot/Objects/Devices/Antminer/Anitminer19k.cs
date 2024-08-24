@@ -5,9 +5,9 @@ using System.Text.Json;
 
 namespace Zealot.device
 {
-    public sealed class Antminer19K : Controller.Board.LocalField<Setting>, IDevice
+    public sealed class Antminer191K : Controller.Board.LocalField<Setting>, IDevice
     {
-        public const string NAME = "Antminer19k";
+        public const string NAME = "Antminer191k";
 
         public bool IsRunning = true;
 

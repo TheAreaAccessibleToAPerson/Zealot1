@@ -17,15 +17,41 @@ namespace Zealot.hellper
 
         private string _currentState = State.NONE;
 
-        private string _address;
+        public string Address { private set; get; } = "";
 
         IInput<string, string> i_send;
         IInput i_request;
+        IInput<string> i_emptyAddressToDevicesScaner;
 
         void Construction()
         {
+            Address = Field;
+
             input_to(ref i_request, Request);
             send_message(ref i_send, Devices.BUS.RECEIVE_SCAN_DEVICES);
+            send_message(ref i_emptyAddressToDevicesScaner, ScanerDevices.BUS.EMPTY_ADDRESS_TO_SCAN);
+        }
+
+        /// <summary>
+        /// Если во время сканирование устройсво было освобождено, то
+        /// укажим что оно доступно для повторного сканирования.
+        /// </summary> 
+        public void Destroy()
+        {
+            if (StateInformation.IsCallConstruction)
+            {
+                Logger.I.To(this, $"В данный момент устросво не доступно, освободим его аддрес {Address} и позже попробуем получить к нему доступ.");
+
+                i_emptyAddressToDevicesScaner.To(Address);
+
+                destroy();
+
+                return;
+            }
+        }
+
+        void Stop()
+        {
         }
 
         void Start()
@@ -37,7 +63,7 @@ namespace Zealot.hellper
         {
             if (IPAddress.TryParse(Field, out IPAddress a))
             {
-                _address = Field;
+                Address = Field;
             }
             else
             {
@@ -45,7 +71,6 @@ namespace Zealot.hellper
                     $" синтаксически неверному ip аддресу.");
 
                 destroy();
-
 
                 return;
             }
@@ -77,12 +102,12 @@ namespace Zealot.hellper
                     else if (_currentState == State.HTTPS_AUTHORIZATION_REQUEST)
                     {
                         //Logger.S_E.To(this, "Неудалось авторизоваться по логину/паролю admin.");
-                        destroy();
+                        Destroy();
                     }
                     else
                     {
                         //Logger.S_E.To(this, "1 Неудалось авторизоваться.");
-                        destroy();
+                        Destroy();
                     }
                 }
                 else if (ex.ToString().Contains("The SSL connection could not be established, see inner exception"))
@@ -91,7 +116,7 @@ namespace Zealot.hellper
                 }
                 else
                 {
-                    destroy();
+                    Destroy();
                     //Logger.S_E.To(this, ex.ToString());
                 }
             }
@@ -108,7 +133,7 @@ namespace Zealot.hellper
         {
             try
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + _address);
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address);
                 //request.CookieContainer = cookeis;
                 request.BeginGetResponse(new AsyncCallback((result) =>
                 {
@@ -123,6 +148,8 @@ namespace Zealot.hellper
                             i_send.To(Field, str);
 
                             destroy();
+
+                            return;
                         }
                     }
                     catch (Exception httpEx)
@@ -131,7 +158,7 @@ namespace Zealot.hellper
                         {
                             if (httpEx.ToString().Contains("The SSL connection could not be established, see inner exception"))
                             {
-                                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + _address + "/cgi-bin/luci" + "?luci_username=admin&luci_password=admin");
+                                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "/cgi-bin/luci" + "?luci_username=admin&luci_password=admin");
 
                                 request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
                                 request.CookieContainer = cookeis;
@@ -149,13 +176,15 @@ namespace Zealot.hellper
                                             i_send.To(Field, str);
 
                                             destroy();
+
+                                            return;
                                         }
                                     }
                                     catch (Exception httpsAdminException)
                                     {
                                         if (httpsAdminException.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
                                         {
-                                            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + _address + "?username=root&password=root");
+                                            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "?username=root&password=root");
 
                                             request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
                                             request.UseDefaultCredentials = false;
@@ -174,12 +203,16 @@ namespace Zealot.hellper
                                                         i_send.To(Field, str);
 
                                                         destroy();
+
+                                                        return;
                                                     }
                                                 }
                                                 catch (Exception eee)
                                                 {
                                                     //Console(eee.ToString());
-                                                    destroy();
+                                                    Destroy();
+
+                                                    return;
                                                 }
                                             }),
                                             request);
@@ -187,7 +220,9 @@ namespace Zealot.hellper
                                         else
                                         {
                                             //Console(httpsAdminException.ToString());
-                                            destroy();
+                                            Destroy();
+
+                                            return;
                                         }
                                     }
                                 }),
@@ -195,7 +230,7 @@ namespace Zealot.hellper
                             }
                             else if (httpEx.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
                             {
-                                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + _address + "/");
+                                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address + "/");
 
                                 request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
                                 request.Credentials = new NetworkCredential("root", "root");
@@ -220,7 +255,7 @@ namespace Zealot.hellper
                                     catch (Exception eee)
                                     {
                                         //Console(eee.ToString());
-                                        destroy();
+                                        Destroy();
                                     }
                                 }),
                                 request);
@@ -228,10 +263,10 @@ namespace Zealot.hellper
                             }
                             //else Logger.I.To(this, $"{httpEx.ToString()}");
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
-                           //Console(ex.ToString());
-                            destroy();
+                            //Console(ex.ToString());
+                            Destroy();
                         }
                     }
 
@@ -241,24 +276,7 @@ namespace Zealot.hellper
             catch (Exception ex)
             {
                 //Console(ex.ToString());
-                destroy();
-            }
-        }
-
-        private void HttpRequest()
-        {
-            try
-            {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + _address);
-
-                _currentState = State.HTTP_REQUEST;
-
-                request.BeginGetResponse(new AsyncCallback(FinishWebRequest), request);
-            }
-            catch (Exception ex)
-            {
-                destroy();
-                Console(ex.ToString());
+                Destroy();
             }
         }
 
@@ -266,7 +284,7 @@ namespace Zealot.hellper
         {
             try
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + _address);
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address);
 
                 _currentState = State.HTTP_AUTHORIZATION_REQUEST;
 
@@ -276,7 +294,8 @@ namespace Zealot.hellper
             }
             catch (Exception ex)
             {
-                destroy();
+                Destroy();
+
                 Console(ex.ToString());
             }
         }
@@ -294,7 +313,7 @@ namespace Zealot.hellper
                     Console(index);
                 }
 
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + _address + "?username=admin&password=admin");
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "?username=admin&password=admin");
 
                 request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
 
@@ -306,7 +325,7 @@ namespace Zealot.hellper
             }
             catch (Exception ex)
             {
-                destroy();
+                Destroy();
                 Console(ex.ToString());
             }
         }

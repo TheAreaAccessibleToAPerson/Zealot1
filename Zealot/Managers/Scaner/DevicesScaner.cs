@@ -35,7 +35,7 @@ namespace Zealot.manager
         /// </summary>
         /// <typeparam name="string"></typeparam>
         /// <returns></returns>
-        private readonly List<string> _scanAddresses = new List<string>();
+        private readonly Dictionary<string, bool> _scanAddresses = new();
 
         /// <summary>
         /// Одиночно добавленые адреса.
@@ -70,7 +70,13 @@ namespace Zealot.manager
         /// Запущен процесс сканирования?
         /// </summary> <summary>
         bool _isStart = false;
-        IInput i_start;
+
+        /// <summary>
+        /// В качесве булевого значения передается значение указываеются на то, нажно ли вызвать ReadLine.Input
+        /// иначе говоря запущено едино разовое сканирование сети или запущен update.
+        /// </summary> 
+        IInput<bool> i_start;
+
 
         /// <summary>
         /// Начало диопозона. 
@@ -104,10 +110,17 @@ namespace Zealot.manager
                     if (command == "stop")
                     {
                         _isStart = false;
+                        _isUpdate = false;
+
+                        ReadLine.Input();
+                    }
+                    else if (command == "update")
+                    {
+                        i_runUpdate.To();
                     }
                     else if (command == "start")
                     {
-                        i_start.To();
+                        i_start.To(true);
                     }
                     else if (command == "show")
                     {
@@ -232,11 +245,33 @@ namespace Zealot.manager
 
         void Construction()
         {
-            add_event(Header.Events.SCAN_DEVICES, 60000, () =>
-            {
-                if (_isUpdate && _isStart == false)
+            listen_message<string>(BUS.EMPTY_ADDRESS_TO_SCAN)
+                .output_to((address) => 
                 {
-                    i_start.To();
+                    if (_scanAddresses[address] == true)
+                    {
+                        Logger.I.To(this, $"Недалось получить доступ к устройсву, освободим аддрес [{address}] и попробуем обратится позже.");
+
+                        _scanAddresses[address] = false;
+                    }
+                    else 
+                    {
+                        Logger.S_E.To(this, $"Во время обращения к устройсву по аддресу [{address}], оно было не доступно." + 
+                            "Поэтому оно сообщило о необходимости сделать данный аддрес доступным для повторного обращения, " +
+                            "но в момент освобождения этот адресс оказался и так свободным.");
+
+                        destroy();
+
+                        return;
+                    }
+                }, 
+                Header.Events.SCAN_DEVICES);
+
+            add_event(Header.Events.SCAN_DEVICES, 30000, () =>
+            {
+                if (_isUpdate)
+                {
+                    i_start.To(false);
                 }
             });
 
@@ -246,17 +281,22 @@ namespace Zealot.manager
                 {
                     if (!StateInformation.IsDestroy && StateInformation.IsStart)
                     {
+                        Logger.I.To(this, "Получена комманда update на переодическое сканирование сети.");
+
                         if (_isStart == false && _isUpdate == false)
                         {
-                            Logger.I.To(this, "Получена комманда на начало скана сети.");
+                            SystemInformation("update scan", ConsoleColor.Green);
 
                             _isUpdate = true;
                         }
+                        else SystemInformation("Невозможно запустить update сканирование.", ConsoleColor.Yellow);
+
+                        ReadLine.Input();
                     }
                 }
             });
 
-            input_to_0_1<string>(ref i_start, Header.Events.SCAN_DEVICES, (@return) =>
+            input_to_1_2<bool, string, bool>(ref i_start, Header.Events.SCAN_DEVICES, (isStart, @return) =>
             {
                 lock (StateInformation.Locker)
                 {
@@ -264,42 +304,72 @@ namespace Zealot.manager
                     {
                         if (_isStart == false)
                         {
-                            Logger.I.To(this, "Получена комманда на начало скана сети.");
+                            //Logger.I.To(this, "Получена комманда start на начало скана сети.");
 
                             _isStart = true;
 
-                            @return.To(NAME);
+                            @return.To(NAME, isStart);
                         }
                     }
                 }
-            }).send_echo_to<string[]>(Devices.BUS.GET_ADDRESSES_CONNECTION_DEVICES)
-                .output_to((connectionAddresses) =>
+            }).send_echo_to<string[], string[], bool>(Devices.BUS.GET_ADDRESSES_CONNECTION_DEVICES)
+                .output_to((connectionAddresses, unlockedIpAddresses, isStart) =>
                 {
-                    SystemInformation("start scan", ConsoleColor.Green);
+                    if (isStart) SystemInformation("start scan", ConsoleColor.Green);
+
+                    // Манишки отключились значит данный аддрес нужно повторно просканировать.
+                    foreach (string unlockedAddress in unlockedIpAddresses)
+                        if (_scanAddresses.ContainsKey(unlockedAddress))
+                        {
+                            Logger.I.To(this, $"Статус блокировки:{_scanAddresses[unlockedAddress]}, Разблокируем.");
+                            _scanAddresses[unlockedAddress] = false;
+                        }
 
                     string[] buffer;
                     lock (StateInformation.Locker)
-                        buffer = _scanAddresses.ToArray();
+                        buffer = _scanAddresses.Keys.ToArray();
 
                     for (int i = 0; i < buffer.Length; i++)
                     {
-                        bool isConnection = false;
+                        if (_isStart && StateInformation.IsStart)
                         {
-                            for (int u = 0; u < connectionAddresses.Length; u++)
+                            string address = buffer[i];
+
+                            bool isConnection = false;
+                            foreach(String addr in connectionAddresses)
                             {
-                                if (connectionAddresses[u] == buffer[i])
+                                if (addr == address)
                                 {
-                                    // Данное устройсво уже обрабатывается.
+                                    Logger.I.To(this, $"Адресс {addr} не нужно сканировать, асик уже получен.");
                                     isConnection = true;
                                     break;
                                 }
                             }
-                        }
-                        if (isConnection) break;
+                            if (isConnection) continue;
 
-                        if (_isStart && StateInformation.IsStart)
-                        {
-                            obj<NetRequest>(buffer[i], buffer[i]);
+                            if (_scanAddresses[address] == false)
+                            {
+                                _scanAddresses[address] = true;
+
+                                if (try_obj(address, out NetRequest obj))
+                                {
+                                    Logger.S_E.To(this, $"Вы попытались повторно просканировать адресс [{obj.Address}] из который уже получичи асик.");
+
+                                    destroy();
+
+                                    return;
+                                }
+                                else 
+                                {
+                                    Logger.I.To(this, $"Новый NetRequest {address}");
+
+                                    obj<NetRequest>(address, address);
+                                }
+                            }
+                            else 
+                            {
+                                Logger.I.To(this, $"Неудалось создать новый NetRequest так как по данному адрессу уже была получен асик.");
+                            }
                         }
                         else
                         {
@@ -311,8 +381,7 @@ namespace Zealot.manager
 
                     _isStart = false;
 
-                    ReadLine.Input();
-
+                    if (isStart) ReadLine.Input();
                 },
                 Header.Events.SCAN_DEVICES);
 
@@ -401,7 +470,7 @@ namespace Zealot.manager
                                 _scanAddresses.Remove(address);
                             }
 
-                            foreach (string t in _scanAddresses)
+                            foreach (string t in _scanAddresses.Keys)
                             {
                                 if (t == address)
                                 {
@@ -455,7 +524,7 @@ namespace Zealot.manager
 
                         bool isNone = true;
                         {
-                            foreach (string a in _scanAddresses)
+                            foreach (string a in _scanAddresses.Keys)
                             {
                                 if (a == address)
                                 {
@@ -469,7 +538,7 @@ namespace Zealot.manager
                         {
                             Logger.I.To(this, $"Вы добавили новый аддесс [{address}] в коллекцию [_scanAddresses]");
 
-                            _scanAddresses.Add(address);
+                            _scanAddresses.Add(address, false);
                         }
                         else Logger.I.To(this, $"Данный аддресс уже [{address}] добавлен в [_scanAddresses]");
 
@@ -613,7 +682,7 @@ namespace Zealot.manager
                             // Сравниваем с адрессами сканирования
                             // И если есть совподения, то записываем текущий адресс
                             // на удаление, за исключением адрессов котороые
-                            foreach (string t in _scanAddresses)
+                            foreach (string t in _scanAddresses.Keys)
                             {
                                 // Адресс найден.
                                 if (s == t)
@@ -698,7 +767,7 @@ namespace Zealot.manager
                         {
                             // Совподений нету.
                             bool result = true;
-                            foreach (string t in _scanAddresses)
+                            foreach (string t in _scanAddresses.Keys)
                             {
                                 if (t == s)
                                 {
@@ -712,7 +781,7 @@ namespace Zealot.manager
 
                             Logger.I.To(this, $"Вы добавили новый ip для скана:{s}");
 
-                            if (result) _scanAddresses.Add(s);
+                            if (result) _scanAddresses.Add(s, false);
                         }
 
                         // Затем данное значение передадим в базу данных.
@@ -982,7 +1051,7 @@ namespace Zealot.manager
                                     Logger.S_I.To(this, $"Получили ip аддресс из базы данных [{a}]");
 
                                     _addresses.Add(a);
-                                    _scanAddresses.Add(a);
+                                    _scanAddresses.Add(a, false);
                                 }
                             }
 
@@ -1010,7 +1079,7 @@ namespace Zealot.manager
                                         foreach (string t in diopozoneAddresses)
                                         {
                                             bool f = true;
-                                            foreach (string r in _scanAddresses)
+                                            foreach (string r in _scanAddresses.Keys)
                                             {
                                                 if (r == t)
                                                 {
@@ -1019,7 +1088,7 @@ namespace Zealot.manager
                                                 }
                                             }
 
-                                            if (f) _scanAddresses.Add(t);
+                                            if (f) _scanAddresses.Add(t, false);
                                         }
 
                                         _diopozoneAddressesList.Add(a, resultConvert);
@@ -1061,6 +1130,15 @@ namespace Zealot.manager
                 }
             }
             Logger.S_I.To(this, "end configurate");
+        }
+
+        public struct BUS
+        {
+            /// <summary>
+            /// Если не удалось получить доступ к устройсву во время сканирования,
+            /// нам придет адресс который нужно освободить для повторного сканирования. 
+            /// </summary>
+            public const string EMPTY_ADDRESS_TO_SCAN = NAME + ":EmptyAddressToScan";
         }
 
         public struct State

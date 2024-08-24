@@ -12,7 +12,12 @@ namespace Zealot
         {
             StartConfigurate();
 
-            //AddAsic.StartScript();
+            //AddAsic.StartScript2();
+            //AddAsic.StartScript3();
+            //AddAsic.StartScript4();
+            //AddAsic.StartScript5();
+            //AddAsic.StartScript6();
+            //AddAsic.RemoveDataBase();
 
             obj<manager.Clients>(manager.Clients.NAME);
         }

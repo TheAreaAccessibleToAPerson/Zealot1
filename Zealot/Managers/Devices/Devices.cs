@@ -30,6 +30,11 @@ namespace Zealot.manager
         /// </summary> <summary>
         private readonly List<string> _ipAddressDevices = new();
 
+        /// <summary>
+        /// Сюда записываются разблокированые ip аддреса, которые запросит DevicesScaner
+        /// </summary> 
+        private readonly List<string> _unlockedIpAddressDevices = new();
+
         void Construction()
         {
             listen_echo_1_1<string, AsicInit>(BUS.Asic.GET_ASIC_INIT)
@@ -134,12 +139,29 @@ namespace Zealot.manager
                 },
                 Header.Events.WORK_DEVICE);
 
-            listen_echo_1_1<string, string[]>(BUS.GET_ADDRESSES_CONNECTION_DEVICES)
-                .output_to((name, @return) =>
+            listen_echo_2_3<string, bool, string[], string[], bool>(BUS.GET_ADDRESSES_CONNECTION_DEVICES)
+                .output_to((name, isStart, @return) =>
                 {
-                    Logger.I.To(this, $"{name} запросил адресса всем машинок которые уже подключены к серверу.");
+                    string info =  $"{name} запросил адресса всем машинок которые уже подключены к серверу и адресса которые нужно освободить.";
 
-                    @return.To(_ipAddressDevices.ToArray());
+                    info = "\nАдресса для освобождения:";
+                    for (int i = 0; i < _unlockedIpAddressDevices.Count; i++)
+                    {
+                        info += $"\n{i+1}){_unlockedIpAddressDevices[i]}";
+                    }
+
+                    string[] unlockedIpAddressesBuffer = _unlockedIpAddressDevices.ToArray();
+                    _unlockedIpAddressDevices.Clear();
+
+                    info += "\nАдресса не доступные для сканирония.";
+                    for (int i = 0; i < _ipAddressDevices.Count; i++)
+                    {
+                        info += $"\n{i+1}){_ipAddressDevices[i]}";
+                    }
+
+                    Logger.I.To(this, info);
+
+                    @return.To(_ipAddressDevices.ToArray(), unlockedIpAddressesBuffer, isStart);
                 },
                 Header.Events.WORK_DEVICE);
 
@@ -238,6 +260,11 @@ namespace Zealot.manager
 
                     string info = "";
 
+                    if (_unlockedIpAddressDevices.Contains(address) == false)
+                    {
+                        _unlockedIpAddressDevices.Add(address);
+                    }
+
                     if (_ipAddressDevices.Contains(address))
                     {
                         info += $"Адресс [{address}] был разлокирован для сканера девайсов.";
@@ -250,11 +277,11 @@ namespace Zealot.manager
                         {
                             if (_scanDevices.ContainsKey(mac))
                             {
-                                Logger.S_E.To(this, $"Вы попытались разблокировать адресс [{address}] для сканера девайсов, но данный адресс небыл " + 
+                                Logger.S_E.To(this, $"Вы попытались разблокировать адресс [{address}] для сканера девайсов, но данный адресс небыл " +
                                     $"заблокирован ранее, машина под данных ip адрессом и мак адрессом [{mac}] была добавлена ранее в список девайсов.");
                             }
-                            else Logger.S_E.To(this, $"Попытка удалить машину из списка отсканированых из сети машин, но машины " + 
-                                    $"записаной по мак адресу [{mac}] нету, так же не удалось разблокировать адресс [{address}] для сканера " + 
+                            else Logger.S_E.To(this, $"Попытка удалить машину из списка отсканированых из сети машин, но машины " +
+                                    $"записаной по мак адресу [{mac}] нету, так же не удалось разблокировать адресс [{address}] для сканера " +
                                     $"девайсов, так как данный адресс не был заблокирован ранее.");
 
                             destroy();
@@ -271,7 +298,7 @@ namespace Zealot.manager
 
                             _scanDevices.Remove(mac);
                         }
-                        else 
+                        else
                         {
                             Logger.S_E.To(this, $"Неудалось удалить асик по маку [{mac}] из списка устройсв полученых из сети, так как он небыл записан туда ранее");
 
@@ -293,37 +320,37 @@ namespace Zealot.manager
                         IPAddress = address
                     };
 
-                    switch (DeviceDetection.Process(html, address))
+                    if (_scanDevices.ContainsKey(address))
                     {
-                        case "ICE":
+                        Logger.S_E.To(this, $"Вы попытались дважды добавить машинку по ключу {address} в _scanDevices.");
 
-                            //Console(address);
+                        destroy();
 
-                            break;
-
-                        case WhatsMiner.NAME:
-
-                            if (_scanDevices.ContainsKey(address))
+                        return;
+                    }
+                    else
+                    {
+                        foreach (string a in _ipAddressDevices)
+                        {
+                            if (a == address)
                             {
-                                Logger.S_E.To(this, $"Вы попытались дважды добавить машинку по ключу {address} в _scanDevices.");
+                                Logger.S_E.To(this, $"Вы пытаетесь добавить в список хронящий ip адресса, повторяющийся адреесс {address}");
 
                                 destroy();
 
                                 return;
                             }
-                            else
-                            {
-                                foreach (string a in _ipAddressDevices)
-                                {
-                                    if (a == address)
-                                    {
-                                        Logger.S_E.To(this, $"Вы пытаетесь добавить в список хронящий ip адресса, повторяющийся адреесс {address}");
+                        }
 
-                                        destroy();
+                        switch (DeviceDetection.Process(html, address))
+                        {
+                            case "ICE":
 
-                                        return;
-                                    }
-                                }
+                                //Console(address);
+
+                                break;
+
+                            case WhatsMiner.NAME:
 
                                 if (try_obj(address, out WhatsMiner asic))
                                 {
@@ -338,22 +365,37 @@ namespace Zealot.manager
 
                                     _ipAddressDevices.Add(address);
                                 }
-                            }
 
-                            break;
-                        case "Antminer":
 
-                            //_scanDevices.Add(address, obj<AntminerDefault>(address, setting));
+                                break;
+                            case "Antminer":
 
-                            break;
-                        default:
+                                if (try_obj(address, out AntminerDefault asic1))
+                                {
+                                    Logger.W.To(this, $"Уже добавлен WhatsMiner по аддресу(ключy) {address}.");
+                                }
+                                else
+                                {
+                                    obj<AntminerDefault>(address, setting);
 
-                            //Console(html);
+                                    Logger.I.To(this, $"Из сети поступил WhatsMiner находящийся по адрессу {address}.\n" +
+                                        $"Адресс {address} заблокирован для дальнейшего сканирования.");
 
-                            //Console(address + html);
+                                    _ipAddressDevices.Add(address);
+                                }
 
-                            break;
+                                break;
+                            default:
+
+                                //Console(html);
+
+                                //Console(address + html);
+
+                                break;
+                        }
+
                     }
+
                 },
                 Header.Events.WORK_DEVICE);
         }
@@ -635,7 +677,7 @@ namespace Zealot.manager
             }
             else if (value.Contains("Antminer"))
             {
-                return "Antminer19k";
+                return "Antminer";
             }
             else if (value.Contains("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"))
             {
