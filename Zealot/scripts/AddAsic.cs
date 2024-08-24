@@ -119,6 +119,22 @@ namespace Zealot.script
             );
         }
 
+        public static void StartScript7()
+        {
+            AddToDB("id000009", "5", true, 
+            "", "", "Antminer K7",
+            "63.5T",
+            // SN
+            "", "", "JYZZEGABCJBAA0190",
+            // MAC
+            "", "", "E8:E7:74:CF:3D:1A",
+            "ЦЕХ", "2-11", "19", 
+            "", "", "",
+            "", "", "",
+            "", "", ""
+            );
+        }
+
         public static void RemoveDataBase()
         {
             Zealot.MongoDB.TryRemoveDatabase(DB.NAME, out string info);

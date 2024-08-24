@@ -259,9 +259,11 @@ namespace Zealot.hellper
                                     }
                                 }),
                                 request);
-
                             }
-                            //else Logger.I.To(this, $"{httpEx.ToString()}");
+                            else 
+                            {
+                                Destroy();
+                            }
                         }
                         catch (Exception ex)
                         {

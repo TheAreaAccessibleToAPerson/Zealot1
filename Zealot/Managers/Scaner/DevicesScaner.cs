@@ -267,7 +267,7 @@ namespace Zealot.manager
                 }, 
                 Header.Events.SCAN_DEVICES);
 
-            add_event(Header.Events.SCAN_DEVICES, 30000, () =>
+            add_event(Header.Events.SCAN_DEVICES, 1000, () =>
             {
                 if (_isUpdate)
                 {

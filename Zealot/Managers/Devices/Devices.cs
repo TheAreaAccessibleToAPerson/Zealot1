@@ -159,7 +159,7 @@ namespace Zealot.manager
                         info += $"\n{i+1}){_ipAddressDevices[i]}";
                     }
 
-                    Logger.I.To(this, info);
+                    //Logger.I.To(this, info);
 
                     @return.To(_ipAddressDevices.ToArray(), unlockedIpAddressesBuffer, isStart);
                 },
@@ -387,9 +387,8 @@ namespace Zealot.manager
                                 break;
                             default:
 
-                                //Console(html);
-
-                                //Console(address + html);
+                                Console($"Неизвестное устройсво Address:[{address}].");
+                                _unlockedIpAddressDevices.Add(address);
 
                                 break;
                         }
