@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Zealot")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c45e528edf297813e695bd965427921fd792914d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+64594e011efef14b033716614558a2009416bea4")]
 [assembly: System.Reflection.AssemblyProductAttribute("Zealot")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Zealot")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

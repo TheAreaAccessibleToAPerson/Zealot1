@@ -31,6 +31,9 @@ namespace Zealot.manager
 
             add_event(Header.Events.RECEIVE_MESSAGE_FROM_CLIENT, ReceiveMessageFromClient);
 
+            send_echo_1_1<List<AddNewAsic>, List<AddNewAsicsResult>>(ref I_addNewAsics, Devices.BUS.Asic.ADD_NEW_ASIC)
+                .output_to(EAddNewAsicsResult, Header.Events.SYSTEM);
+
             send_message(ref i_removeFromClientsCollection, Clients.BUS.DELETE_CLIENT);
             send_echo_1_1<Devices.IClientConnect, List<AsicInit>>(ref I_getAsics, Devices.BUS.Client.GET_CLIENT_ASICS)
                 .output_to((asics) =>
@@ -46,6 +49,8 @@ namespace Zealot.manager
                         Logger.S_E.To(this, info);
 
                         destroy();
+
+                        return;
                     }
                 },
                 Header.Events.SYSTEM);

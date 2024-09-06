@@ -342,7 +342,7 @@ namespace Zealot.device.hellpers
             return 0;
         }
 
-        public static int ExtractMainPage(string html, out string info, ref AsicStatus w)
+        public static int ExtractMainPage(string html, out string info, ref WhatsMinerStatus w)
         {
             info = "MainPage -";
 

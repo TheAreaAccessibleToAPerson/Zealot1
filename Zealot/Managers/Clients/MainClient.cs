@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Butterfly;
@@ -23,6 +24,8 @@ namespace Zealot.manager
                 Logger.S_E.To(this, $"Вы пытаетесь произвести инициализацию tcp client'a, но он уже проиницилизирован.");
 
                 destroy();
+
+                return;
             }
         }
 
@@ -35,6 +38,10 @@ namespace Zealot.manager
 
         protected IInput<string> I_sendTCPStringMessage;
         protected IInput<byte[]> I_sendTCPBytesMessage;
+
+        // Добавляет новые асики. Отправлет задачу на выполнение в DeviceManager.
+        // После получает результат.
+        protected IInput<List<AddNewAsic>> I_addNewAsics;
 
         public void SendTcpMessage(string message)
         {
@@ -130,11 +137,24 @@ namespace Zealot.manager
 
                             invoke_event(() => CheckLoginAndPassword(j), Header.Events.MONGO_DB);
                         }
+                        // Добавить новый машинки.
+                        else if (type == 1)
+                        {
+                            Logger.I.To(this, "MessageType:1:AddNewAsics");
+
+                            string str = Encoding.UTF8.GetString(buffer, index + 7, messageLength);
+
+                            List<AddNewAsic> j = JsonSerializer.Deserialize<List<AddNewAsic>>(str);
+
+                            Console(str);
+                        }
                         else
                         {
                             Logger.S_E.To(this, $"Неизвестный тип:[{type}] сообщения.");
 
                             destroy();
+
+                            return;
                         }
 
                         index += headerLength + messageLength;
@@ -149,6 +169,8 @@ namespace Zealot.manager
                 Logger.I.To(this, $"{ex.ToString()}");
 
                 destroy();
+
+                return;
             }
         }
 
@@ -170,6 +192,8 @@ namespace Zealot.manager
                 Logger.I.To(this, $"{ex}");
 
                 destroy();
+
+                return;
             }
         }
 
@@ -191,6 +215,8 @@ namespace Zealot.manager
                     Logger.I.To(this, $"{ex}");
 
                     destroy();
+
+                    return;
                 }
             }
         }
@@ -229,11 +255,35 @@ namespace Zealot.manager
                     Logger.I.To(this, $"{ex.ToString()}");
 
                     destroy();
+
+                    return;
                 }
             }
         }
 
         public bool IsAdmin() => true;
+
+        protected void EAddNewAsics(List<AddNewAsic> value)
+        {
+            if (IsAdmin() == false)
+            {
+                Logger.W.To(this, $"Клиент не являющийся Admin пытается добавить новые устройсва.");
+
+                destroy();
+
+                return;
+            }
+            else 
+            {
+                Logger.I.To(this, $"Отправляем запрос на добавление {value.Count} асиков.");
+
+                I_addNewAsics.To(value);
+            }
+        }
+
+        protected void EAddNewAsicsResult(List<AddNewAsicsResult> value)
+        {
+        }
 
         public struct DB
         {
@@ -286,13 +336,16 @@ namespace Zealot.manager
                 Logger.I.To(this, $"Полученый логин слишком короткий [{data.login}].");
 
                 destroy();
-            }
 
+                return;
+            }
             else if (data.password.Length < 3)
             {
                 Logger.I.To(this, $"Полученый пароль слишком короткий [{data.password}].");
 
                 destroy();
+
+                return;
             }
             else
             {
@@ -324,7 +377,7 @@ namespace Zealot.manager
 
                                             return;
                                         }
-                                        else 
+                                        else
                                         {
                                             Logger.S_W.To(this, ClientInitialize.Error);
 
@@ -354,6 +407,8 @@ namespace Zealot.manager
                                     Logger.I.To(this, $"Поступил пароль [{data.password}] не соответвующий логину:[{data.login}].");
 
                                     destroy();
+
+                                    return;
                                 }
                             }
                         }
@@ -368,6 +423,8 @@ namespace Zealot.manager
                         Logger.W.To(this, ex.ToString());
 
                         destroy();
+
+                        return;
                     }
                 }
             }

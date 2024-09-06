@@ -32,7 +32,7 @@ namespace Zealot.device
         /// </summary>
         public string MiningPower3Size { set; get; } = "";
         /// <summary
-        /// Имя значения майнинга.
+        /// Наименование вычесления (GH, TH)
         /// </summary>
         public string MiningPowerName { set; get; } = "";
 

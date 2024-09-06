@@ -340,7 +340,7 @@ namespace Zealot.manager
                             {
                                 if (addr == address)
                                 {
-                                    Logger.I.To(this, $"Адресс {addr} не нужно сканировать, асик уже получен.");
+                                    //Logger.I.To(this, $"Адресс {addr} не нужно сканировать, асик уже получен.");
                                     isConnection = true;
                                     break;
                                 }

@@ -31,9 +31,9 @@ namespace Zealot.device.whatsminer
             public const string UPDATE = "Update";
         }
 
-        protected AsicStatus Status = new AsicStatus();
+        protected WhatsMinerStatus Status = new ();
 
-        CookieContainer cookeis = new CookieContainer();
+        CookieContainer cookeis = new ();
 
         protected IInput<string> i_setState;
         protected IInput<string> i_setState5sDelay;

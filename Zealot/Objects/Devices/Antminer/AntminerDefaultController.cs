@@ -21,9 +21,9 @@ namespace Zealot.device
             public const string WAIT = "WaitState";
         }
 
-        public readonly Status Status = new Status();
+        public readonly AntminerStatus Status = new ();
 
-        private CookieContainer _cookeis = new CookieContainer();
+        private CookieContainer _cookeis = new ();
 
         protected string CurrentState { set; get; } = State.NONE;
 
@@ -123,6 +123,14 @@ namespace Zealot.device
                     else Logger.S_E.To(this, $"Попытка сменить состояние с [{CurrentState}] на " +
                         $"[{nextState}]. Данную операцию можно произвести только если текущее " +
                         $" состояние равно [{State.UPDATE}] ");
+                }
+                else
+                {
+                    Logger.S_E.To(this, $"Вы попытались установить неизветное состняие [{nextState}] при текущем состоянии [{CurrentState}].");
+
+                    destroy();
+
+                    return;
                 }
             }
         }
@@ -225,7 +233,19 @@ namespace Zealot.device
                                     // Если информация об асике получена.
                                     I_setState.To(State.GET_POOL);
                                 }
+                                else
+                                {
+                                    Logger.I.To(this, $"В базе данных нету информации о {_MAC}.");
+                                }
                             }
+                        }
+                        else
+                        {
+                            Logger.W.To(this, "Неудалось получить системную информацию");
+
+                            destroy();
+
+                            return;
                         }
                     }
                     else if (CurrentState == State.GET_POOL)
@@ -255,6 +275,14 @@ namespace Zealot.device
                                 }
                             }
                         }
+                        else
+                        {
+                            Logger.W.To(this, $"Неудалось получить ");
+
+                            destroy();
+
+                            return;
+                        }
 
                         I_setState.To(State.GET_STATS);
                     }
@@ -282,6 +310,13 @@ namespace Zealot.device
                                     Status.fan2 = fan[1].ToString();
                                     Status.fan3 = fan[2].ToString();
                                     Status.fan4 = fan[3].ToString();
+                                }
+                                else if (fan.Length == 2)
+                                {
+                                    Status.fan1 = fan[0].ToString();
+                                    Status.fan2 = fan[1].ToString();
+                                    Status.fan3 = "";
+                                    Status.fan4 = "";
                                 }
 
                                 List<StatsInformation.Chain> c = s.chain;
@@ -361,30 +396,51 @@ namespace Zealot.device
 
                                     I_setState3sDelay.To(State.WAIT);
                                 }
+                                else
+                                {
+                                    Logger.W.To(this, $"Неудалось получить STAT из Json обьеата.");
+
+                                    destroy();
+
+                                    return;
+                                }
                             }
+                            else
+                            {
+                                Logger.W.To(this, $"Неудалось извлечь STAT из Json обьеата.");
+
+                                destroy();
+
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Logger.W.To(this, $"Stats information is null");
+
+                            destroy();
+
+                            return;
                         }
 
                         //Console("\n" + Status.GetShow());
                     }
+                    else
+                    {
+                        Logger.S_E.To(this, $"Неизвестный CurrentState:[{CurrentState}].");
+
+                        destroy();
+
+                        return;
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Logger.W.To(this, $"{ex}");
+
                     destroy();
                 }
             }
-        }
-
-
-        void Configurate()
-        {
-        }
-
-        void Destroyed()
-        {
-        }
-
-        void Stop()
-        {
         }
 
         public bool IsOnline()
@@ -576,7 +632,7 @@ namespace Zealot.device
             throw new NotImplementedException();
         }
 
-        public AsicStatus GetStatus()
+        public WhatsMinerStatus GetStatus()
         {
             throw new NotImplementedException();
         }
@@ -625,9 +681,9 @@ namespace Zealot.device
             public string diff { get; set; }
             public int diff1 { get; set; }
             public double diffa { get; set; }
-            public int diffr { get; set; }
-            public int diffs { get; set; }
-            public int lsdiff { get; set; }
+            public long diffr { get; set; }
+            public long diffs { get; set; }
+            public long lsdiff { get; set; }
             public string lstime { get; set; }
         }
 
@@ -699,7 +755,7 @@ namespace Zealot.device
         }
     }
 
-    public class Status
+    public class AntminerStatus
     {
         public string MinerType { set; get; }
         public string Address { set; get; }

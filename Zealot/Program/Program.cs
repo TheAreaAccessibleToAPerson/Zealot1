@@ -18,6 +18,19 @@ namespace Zealot
             //AddAsic.StartScript5();
             //AddAsic.StartScript6();
             //AddAsic.StartScript7();
+            //AddAsic.StartScript8();
+            //AddAsic.StartScript9();
+            //AddAsic.StartScript10();
+            //AddAsic.StartScript11();
+            //AddAsic.StartScript12();
+            //AddAsic.StartScript13();
+            //AddAsic.StartScript14();
+            //AddAsic.StartScript15();
+            //AddAsic.StartScript16();
+            //AddAsic.StartScript17();
+            //AddAsic.StartScript18();
+            //AddAsic.StartScript19();
+            //AddAsic.StartScript20();
             //AddAsic.RemoveDataBase();
 
             obj<manager.Clients>(manager.Clients.NAME);

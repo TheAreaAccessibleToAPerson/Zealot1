@@ -111,12 +111,13 @@ namespace Zealot
         // Разрешение на работу.
         public bool IsRunning { set; get; } = false;
 
-        public MACInformation MAC { set; get; } 
+        public MACInformation MAC { set; get; }
         public SNInformation SN { set; get; }
         public LocationInformation Location { set; get; }
         public ClientInformation Client { set; get; }
         public ModelInformation Model { set; get; }
         public PoolInformation Pool { set; get; }
+        public CompanyInformation Company { set; get; }
 
         /// <summary>
         /// 
@@ -203,6 +204,26 @@ namespace Zealot
             }
         }
 
+        public class DateTimeInformation
+        {
+            /// <summary>
+            /// Дата добавление асика.
+            /// </summary>
+            public string AddDateTime { set; get; }
+        }
+        public class CompanyInformation
+        {
+            // Имя в нутри системы.
+            public string Name1 { set; get; } = "";
+            // Имя указаное при отправки
+            public string Name2 { set; get; } = "";
+            // Имя по факту.
+            public string Name3 { set; get; } = "";
+
+            // Заявленая мощность модели.
+            public string Power { set; get; } = "";
+        }
+
         public class ModelInformation
         {
             // Имя в нутри системы.
@@ -245,6 +266,7 @@ namespace Zealot
         {
             // ID Клиента.
             public string ID { set; get; } = "";
+            public string NAME {set;get;} = "";
         }
 
         public class LocationInformation
@@ -273,11 +295,15 @@ namespace Zealot
         {
             public const string UNIQUE_NUMBER = "UniqueNumber";
             public const string CLIENT_ID = "ClientID";
+            public const string CLIENT_NAME = "ClientName";
             public const string IS_RUNNING = "Is running";
+            public const string COMPANY_NAME1 = "CompanyName1";
+            public const string COMPANY_NAME2 = "CompanyName1";
+            public const string COMPANY_NAME3 = "CompanyName1";
             public const string MODEL_NAME1 = "ModelName1";
             public const string MODEL_NAME2 = "ModelName2";
             public const string MODEL_NAME3 = "ModelName3";
-            public const string MODEL_POWER = "ModelPower";
+            public const string POWER = "Power";
             public const string SN1 = "SN1";
             public const string SN2 = "SN2";
             public const string SN3 = "SN3";
@@ -296,6 +322,7 @@ namespace Zealot
             public const string POOL_ADDR_3 = "Pool addr 3";
             public const string POOL_NAME_3 = "Pool name 3";
             public const string POOL_PASSWORD_3 = "Pool password 3";
+            public const string ADD_ASIC_DATE_TIME = "Add asic dateTime";
         }
 
     }

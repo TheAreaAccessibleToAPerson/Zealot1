@@ -314,10 +314,10 @@ namespace Zealot.device
             destroy();
         }
 
-        public AsicStatus GetStatus() => Status;
+        public WhatsMinerStatus GetStatus() => Status;
     }
 
-    public class AsicStatus
+    public class WhatsMinerStatus
     {
         public string Model { get; set; } = "";
 

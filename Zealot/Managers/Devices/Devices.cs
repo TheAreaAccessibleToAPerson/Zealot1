@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Butterfly;
 using MongoDB.Bson;
@@ -37,6 +38,9 @@ namespace Zealot.manager
 
         void Construction()
         {
+            listen_echo_1_1<List<AddNewAsic>, List<AddNewAsicsResult>>(BUS.Asic.ADD_NEW_ASIC)
+                .output_to(EAddNewAsics, Header.Events.MONGO_DB);
+
             listen_echo_1_1<string, AsicInit>(BUS.Asic.GET_ASIC_INIT)
                 .output_to((mac, @return) =>
                 {
@@ -142,12 +146,12 @@ namespace Zealot.manager
             listen_echo_2_3<string, bool, string[], string[], bool>(BUS.GET_ADDRESSES_CONNECTION_DEVICES)
                 .output_to((name, isStart, @return) =>
                 {
-                    string info =  $"{name} запросил адресса всем машинок которые уже подключены к серверу и адресса которые нужно освободить.";
+                    string info = $"{name} запросил адресса всем машинок которые уже подключены к серверу и адресса которые нужно освободить.";
 
                     info = "\nАдресса для освобождения:";
                     for (int i = 0; i < _unlockedIpAddressDevices.Count; i++)
                     {
-                        info += $"\n{i+1}){_unlockedIpAddressDevices[i]}";
+                        info += $"\n{i + 1}){_unlockedIpAddressDevices[i]}";
                     }
 
                     string[] unlockedIpAddressesBuffer = _unlockedIpAddressDevices.ToArray();
@@ -156,7 +160,7 @@ namespace Zealot.manager
                     info += "\nАдресса не доступные для сканирония.";
                     for (int i = 0; i < _ipAddressDevices.Count; i++)
                     {
-                        info += $"\n{i+1}){_ipAddressDevices[i]}";
+                        info += $"\n{i + 1}){_ipAddressDevices[i]}";
                     }
 
                     //Logger.I.To(this, info);
@@ -344,9 +348,22 @@ namespace Zealot.manager
 
                         switch (DeviceDetection.Process(html, address))
                         {
-                            case "ICE":
+                            case IceRiver.NAME:
 
-                                //Console(address);
+                                if (try_obj(address, out IceRiver iceRiver))
+                                {
+                                    Logger.W.To(this, $"Уже добавлен асик по аддресу(ключy) {address}.");
+                                }
+                                else
+                                {
+                                    obj<IceRiver>(address, setting);
+
+                                    Logger.I.To(this, $"Из сети поступил IceRiver находящийся по адрессу {address}.\n" +
+                                        $"Адресс {address} заблокирован для дальнейшего сканирования.");
+
+                                    _ipAddressDevices.Add(address);
+                                }
+
 
                                 break;
 
@@ -354,7 +371,7 @@ namespace Zealot.manager
 
                                 if (try_obj(address, out WhatsMiner asic))
                                 {
-                                    Logger.W.To(this, $"Уже добавлен WhatsMiner по аддресу(ключy) {address}.");
+                                    Logger.W.To(this, $"Уже добавлен асик по аддресу(ключy) {address}.");
                                 }
                                 else
                                 {
@@ -372,13 +389,13 @@ namespace Zealot.manager
 
                                 if (try_obj(address, out AntminerDefault asic1))
                                 {
-                                    Logger.W.To(this, $"Уже добавлен WhatsMiner по аддресу(ключy) {address}.");
+                                    Logger.W.To(this, $"Уже добавлен асик по аддресу(ключy) {address}.");
                                 }
                                 else
                                 {
                                     obj<AntminerDefault>(address, setting);
 
-                                    Logger.I.To(this, $"Из сети поступил WhatsMiner находящийся по адрессу {address}.\n" +
+                                    Logger.I.To(this, $"Из сети поступил AntMiner находящийся по адрессу {address}.\n" +
                                         $"Адресс {address} заблокирован для дальнейшего сканирования.");
 
                                     _ipAddressDevices.Add(address);
@@ -435,10 +452,10 @@ namespace Zealot.manager
             }
 
             // Проверяем наличие коллекции.
-            if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.AsicsCollections.NAME,
+            if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.AsicsCollection.NAME,
                 out string error))
             {
-                Logger.S_I.To(this, $"Коллекция [{DB.AsicsCollections.NAME}] в базе данных " +
+                Logger.S_I.To(this, $"Коллекция [{DB.AsicsCollection.NAME}] в базе данных " +
                     $" [{DB.NAME}] уже создана.");
             }
             else
@@ -446,7 +463,7 @@ namespace Zealot.manager
                 // Коллекции нету, создадим ее.
                 if (error == "")
                 {
-                    if (MongoDB.TryCreatingCollection(DB.NAME, DB.AsicsCollections.NAME,
+                    if (MongoDB.TryCreatingCollection(DB.NAME, DB.AsicsCollection.NAME,
                         out string info))
                     {
                         Logger.S_I.To(this, info);
@@ -471,7 +488,7 @@ namespace Zealot.manager
             }
 
             // Пытаемся получить все машинки.
-            if (MongoDB.TryFind(DB.NAME, DB.AsicsCollections.NAME, out string findInfo,
+            if (MongoDB.TryFind(DB.NAME, DB.AsicsCollection.NAME, out string findInfo,
                 out List<BsonDocument> asics))
             {
                 try
@@ -498,7 +515,7 @@ namespace Zealot.manager
                                 Name2 = asic[AsicInit._.MODEL_NAME2].ToString(),
                                 Name3 = asic[AsicInit._.MODEL_NAME3].ToString(),
 
-                                Power = asic[AsicInit._.MODEL_POWER].ToString(),
+                                Power = asic["ModelPower"].ToString(),
                             },
 
                             SN = new AsicInit.SNInformation()
@@ -560,6 +577,223 @@ namespace Zealot.manager
             }
         }
 
+        private void EAddNewAsics(List<AddNewAsic> values, IReturn<List<AddNewAsicsResult>> @return)
+        {
+            if (values.Count == 0)
+            {
+                @return.To(null);
+
+                return;
+            }
+
+            List<AddNewAsicsResult> result = new(values.Count);
+
+            lock (StateInformation.Locker)
+            {
+                if (StateInformation.IsStart && !StateInformation.IsDestroy)
+                {
+                    if (MongoDB.ContainsDatabase(DB.NAME, out string containsDBerror))
+                    {
+                        Logger.S_I.To(this, $"База данныx {DB.NAME} уже создана.");
+                    }
+                    else
+                    {
+                        if (containsDBerror != "")
+                        {
+                            Logger.S_I.To(this, $"База данныx {DB.NAME} уже создана.");
+                        }
+                        else
+                        {
+                            Logger.S_I.To(this, $"Создаем базу данных {DB.NAME}.");
+
+                            if (MongoDB.TryCreatingDatabase(DB.NAME, out string infoR))
+                            {
+                                Logger.S_I.To(this, infoR);
+                            }
+                            else
+                            {
+                                Logger.S_I.To(this, infoR);
+
+                                destroy();
+
+                                return;
+                            }
+                        }
+                    }
+
+                    // Проверяем наличие коллекции.
+                    if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.AsicsCollection.NAME,
+                        out string error))
+                    {
+                        Logger.S_I.To(this, $"Коллекция [{DB.AsicsCollection.NAME}] в базе данных " +
+                            $" [{DB.NAME}] уже создана.");
+                    }
+                    else
+                    {
+                        // Коллекции нету, создадим ее.
+                        if (error == "")
+                        {
+                            if (MongoDB.TryCreatingCollection(DB.NAME, DB.AsicsCollection.NAME,
+                                out string infoI))
+                            {
+                                Logger.S_I.To(this, infoI);
+                            }
+                            else
+                            {
+                                Logger.S_I.To(this, infoI);
+
+                                destroy();
+
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Logger.S_I.To(this, error);
+
+                            destroy();
+
+                            return;
+                        }
+                    }
+
+                    // Проверяем наличие документа хранящего адреса и диопазоны адресов.
+                    if (MongoDB.TryFind(DB.NAME, DB.AsicsCollection.NAME, out string findInfo,
+                        out List<BsonDocument> asics))
+                    {
+                        Logger.I.To(this, findInfo);
+
+                        if (asics != null)
+                        {
+                            // Текущий последний уникальный номер для асиков.
+                            int currentLastUniqueNumberIDAsic = 0;
+                            if (asics.Count != 0)
+                            {
+                                // Если асики уже были добавлены, то получим последний уникальный номер.
+                                currentLastUniqueNumberIDAsic = asics[asics.Count - 1][AsicInit._.UNIQUE_NUMBER].ToInt32();
+                            }
+
+                            try
+                            {
+                                for (int i = 0; i < asics.Count; i++)
+                                {
+                                    string locationName = asics[i][AsicInit._.LOCATION_NAME].ToString();
+                                    string locationNumber = asics[i][AsicInit._.LOCATION_STAND_NUMBER].ToString();
+                                    string indexPosition = asics[i][AsicInit._.LOCATION_SLOT_INDEX].ToString();
+                                    string company = asics[i][AsicInit._.COMPANY_NAME3].ToString();
+                                    string model = asics[i][AsicInit._.MODEL_NAME3].ToString();
+                                    string hash = asics[i][AsicInit._.POWER].ToString();
+                                    string sn = asics[i][AsicInit._.SN3].ToString();
+                                    string mac = asics[i][AsicInit._.MAC3].ToString();
+                                    string clientName = asics[i][AsicInit._.CLIENT_NAME].ToString();
+
+                                    for (int u = 0; u < result.Count; u++)
+                                    {
+                                        result[u].IndexLine = values[u].IndexLine;
+                                        result[u].LocationName = values[u].LocationName;
+                                        result[u].LocationNumber = values[u].LocationNumber;
+                                        result[u].IndexPosition = values[u].IndexPosition;
+
+                                        if (values[u].LocationName != "ЦЕХ" || values[u].LocationName != "КОН")
+                                        {
+                                            result[u].LocationNameResult = AddNewAsicsResult.ERROR;
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            result[u].LocationNameResult = AddNewAsicsResult.SUCCESS;
+                                        }
+
+                                        result[u].LocationNameResult = AddNewAsicsResult.SUCCESS;
+
+                                        if (locationNumber == result[u].LocationNumber &&
+                                            indexPosition == result[u].IndexPosition)
+                                        {
+                                            result[u].IndexPositionResult = AddNewAsicsResult.ERROR;
+                                            continue;
+                                        }
+                                        else 
+                                        {
+                                            result[u].IndexPositionResult = AddNewAsicsResult.SUCCESS;
+                                        }
+                                        
+                                        result[u].Company = values[u].Company;
+                                        result[u].CompanyResult = "";
+                                        result[u].Model = values[u].Model;
+                                        result[u].ModelResult = "";
+                                        result[u].Hash = values[u].Hash;
+                                        result[u].HashResult = "";
+                                        result[u].Sn = values[u].Sn;
+                                        result[u].SnResult = "";
+                                        result[u].Mac = values[u].Mac;
+                                        result[u].MacResult = "";
+                                        result[u].ClientName = values[u].ClientName;
+                                        result[u].ClientNameResult = "";
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.S_I.To(this, ex.ToString());
+
+                                destroy();
+
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Logger.S_I.To(this, "Asics listen is null.");
+
+                            destroy();
+
+                            return;
+                        }
+                    }
+
+                    /*
+                    // Затем данное значение передадим в базу данных.
+                    if (Zealot.MongoDB.TryInsertOne(DB.NAME, DB.AsicsCollections.NAME,
+                    out string info, new BsonDocument()
+                    {
+                { AsicInit._.UNIQUE_NUMBER, uniqueNumber},
+                { AsicInit._.CLIENT_ID, clientID},
+                { AsicInit._.IS_RUNNING, isRunning},
+                { AsicInit._.MODEL_NAME1, modelName1},
+                { AsicInit._.MODEL_NAME2, modelName2},
+                { AsicInit._.MODEL_NAME3, modelName3},
+                { AsicInit._.MODEL_POWER, modelPower},
+                { AsicInit._.SN1, SN1}, { AsicInit._.SN2, SN2}, { AsicInit._.SN3, SN3},
+                { AsicInit._.MAC1, MAC1}, { AsicInit._.MAC2, MAC2}, { AsicInit._.MAC3, MAC3},
+                { AsicInit._.LOCATION_NAME, locationName},
+                { AsicInit._.LOCATION_STAND_NUMBER, locationStandNumber},
+                { AsicInit._.LOCATION_SLOT_INDEX, locationSlotIndex},
+                { AsicInit._.POOL_ADDR_1, poolAddr1},
+                { AsicInit._.POOL_NAME_1, poolName1},
+                { AsicInit._.POOL_PASSWORD_1, poolPassword1},
+                { AsicInit._.POOL_ADDR_2, poolAddr2},
+                { AsicInit._.POOL_NAME_2, poolName2},
+                { AsicInit._.POOL_PASSWORD_2, poolPassword2},
+                { AsicInit._.POOL_ADDR_3, poolAddr3},
+                { AsicInit._.POOL_NAME_3, poolName3},
+                { AsicInit._.POOL_PASSWORD_3, poolPassword3},
+                    }
+                    {
+                        Logger.I.To(this, info);
+                    }
+                    else
+                    {
+                        Logger.S_I.To(this, info);
+
+                        destroy();
+
+                        return;
+                    }
+                */
+                }
+            }
+        }
+
         public struct BUS
         {
             public const string RECEIVE_SCAN_DEVICES = NAME + ":ReceiveScanDevices";
@@ -603,6 +837,11 @@ namespace Zealot.manager
                 /// так же удаляем адресс данной машины из списка заблокированых адрессов для сканирования.
                 /// </summary> 
                 public const string REMOTE_ASIC = NAME + ":RemoveAsic";
+
+                /// <summary>
+                /// Добавляет новый асик в базу данных и в коллекцию.
+                /// </summary> <summary>
+                public const string ADD_NEW_ASIC = NAME + ":AddNewAsic";
             }
 
 
@@ -616,7 +855,7 @@ namespace Zealot.manager
         {
             public const string NAME = "Asics";
 
-            public struct AsicsCollections
+            public struct AsicsCollection
             {
                 public const string NAME = "AsicsCollection";
 
@@ -660,16 +899,14 @@ namespace Zealot.manager
             {
                 return WhatsMiner.NAME;
             }
+            else if (value.Contains("<TITLE>用户界面</TITLE>"))
+            {
+                //return IceRiver.NAME;
+            }
             else if (value.Contains("<title>PROMMINER FW</title>"))
             {
-                //Console.WriteLine("PRO MINER");
+                return "Antminer";
             }
-            //else if (value.Contains("<link rel=\"shortcut icon\" href=\"/favicon.ico\" />"))
-            //{
-            //    return "1";
-            //return "ICE";
-            //}
-            // S19K
             else if (value.Contains("ANTMINER"))
             {
                 return "Antminer";
@@ -705,6 +942,7 @@ namespace Zealot.manager
             //System.Console.WriteLine("KJKJK");
 
 
+            //System.Console.WriteLine(value);
             return "";
         }
     }

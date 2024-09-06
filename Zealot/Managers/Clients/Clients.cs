@@ -55,7 +55,10 @@ namespace Zealot.manager
 
         void Start()
         {
-            obj<network.Server>(network.Server.NAME);
+            Logger.S_I.To(this, "starting ...");
+            {
+                obj<network.Server>(network.Server.NAME);
+            }
         }
 
         void Configurate()

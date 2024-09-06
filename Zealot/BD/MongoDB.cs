@@ -616,6 +616,96 @@ namespace Zealot
         public static bool TryFind(string databaseName, string collectionName,
             out string info, out List<BsonDocument> doc)
         {
+            string information = $"[MongoDB|{_connection}]Не удалось получить список документов, так как";
+
+            if (collectionName == "")
+            {
+                info = information + $"текущее имя колекции не может быть пустым.";
+
+                doc = default;
+
+                return false;
+            }
+
+            if (databaseName == "")
+            {
+                info = information + $"было передано пустое имя для базы данных.";
+
+                doc = default;
+
+                return false;
+            }
+
+            if (Client != null)
+            {
+                try
+                {
+                    IMongoDatabase db = Client.GetDatabase(databaseName);
+
+                    if (db != null)
+                    {
+                        IMongoCollection<BsonDocument> c = db.GetCollection<BsonDocument>(collectionName);
+
+                        if (c != null)
+                        {
+                            doc = c.Find(new BsonDocument()).ToList();
+
+                            if (doc != null)
+                            {
+                                info = $"[MongoDB|{_connection}]Вы получили BsonDocument в количесве {doc.Count}";
+                            }
+                            else
+                            {
+                                info = $"[MongoDB|{_connection}]У вас нету неодного нокумента.";
+                            }
+
+                            return true;
+                        }
+                        else
+                        {
+                            info = information +
+                                $" коллекции {collectionName} нету в базе данных {databaseName}";
+
+                            doc = default;
+
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        info = information +
+                            $"базы данных с именем {databaseName} не сущесвует.";
+
+                        doc = default;
+
+                        return false;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    info = information + "отсутвует подключение к серверу.";
+                    doc = default;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    info = information + ex.ToString();
+                    doc = default;
+                    return false;
+                }
+            }
+            else
+            {
+                info = information + ConnectionData.NULL;
+                doc = default;
+                return false;
+            }
+        }
+
+        /*
+        public static bool TryFind(string databaseName, string collectionName,
+            out string info, out List<BsonDocument> doc)
+        {
             string information = $"[MongoDB|{_connection}]Не удалось получить список документ, так как";
 
             if (collectionName == "")
@@ -701,6 +791,7 @@ namespace Zealot
                 return false;
             }
         }
+        */
 
         public static bool TryRenameCollection<CollectionType>(string databaseName, string collectionName,
             string newCollectionName, out string info)

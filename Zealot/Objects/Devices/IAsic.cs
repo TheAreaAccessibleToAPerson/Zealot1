@@ -93,7 +93,7 @@ namespace Zealot
         public string GetJsonString();
         public byte[] GetJsonBytes();
 
-        public AsicStatus GetStatus();
+        public WhatsMinerStatus GetStatus();
 
         // Причина внешнего удаления.
         public void Destroy(string destroyInfo);
