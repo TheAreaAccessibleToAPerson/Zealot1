@@ -40,6 +40,14 @@ namespace Zealot.device
         public string Temp2 { set; get; } = "";
         public string Temp3 { set; get; } = "";
 
+        // ДЛЯ IceRiver
+        public string InTemp1 { set; get; } = "";
+        public string InTemp2 { set; get; } = "";
+        public string InTemp3 { set; get; } = "";
+        public string OutTemp1 { set; get; } = "";
+        public string OutTemp2 { set; get; } = "";
+        public string OutTemp3 { set; get; } = "";
+
         public string IPAddress { set; get; } = "";
 
         /// <summary>

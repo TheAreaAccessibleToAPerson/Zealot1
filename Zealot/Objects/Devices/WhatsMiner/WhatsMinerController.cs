@@ -295,9 +295,6 @@ namespace Zealot.device.whatsminer
                         {
                             Status.MAC = _MAC;
 
-                            //Result1.Reiceve(Field.IPAddress, _MAC);
-                            //i_setState.To(State.DOWNLOAD_POOL);
-
                             // Проверим по маку имеется ли такая машинка в наличии.
                             if (isAddAsicToDictionary == false)
                             {
@@ -312,6 +309,14 @@ namespace Zealot.device.whatsminer
                                 {
                                     // Если информация об асике получена.
                                     i_setState.To(State.DOWNLOAD_POOL);
+                                }
+                                else
+                                {
+                                    Logger.I.To(this, $"В базе данных нету информации о {_MAC}.");
+
+                                    destroy();
+
+                                    return;
                                 }
                             }
                         }

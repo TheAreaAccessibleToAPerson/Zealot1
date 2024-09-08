@@ -36,11 +36,11 @@ namespace Zealot.device
                                 input_to(ref I_sendStringMessageToClients, Header.Events.WORK_DEVICE, AsicInit.SendToMessage);
                             }
 
-                            //I_setState.To(State.GET_POOL);
+                            I_setState.To(State.GET_INFO);
                         }
                         else
                         {
-                            //I_setState.To(State.GET_POOL);
+                            I_setState.To(State.GET_INFO);
 
                             Logger.I.To(this, $"О данном девайсе c mac:[{_MAC}] нету информации в базе данных.");
                         }

@@ -236,6 +236,10 @@ namespace Zealot.device
                                 else
                                 {
                                     Logger.I.To(this, $"В базе данных нету информации о {_MAC}.");
+
+                                    destroy();
+
+                                    return;
                                 }
                             }
                         }
