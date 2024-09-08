@@ -61,8 +61,15 @@ namespace Zealot.manager
 
                             CurrentState = State.RUNNING;
                         }
-                        else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                            $" $только если текущее состояние {State.END_AUTHORIZATION}");
+                        else
+                        {
+                            Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
+                                $" $только если текущее состояние {State.END_AUTHORIZATION}");
+
+                            destroy();
+
+                            return;
+                        }
                     }
                     else if (nextState == State.START_SUBSCRIBE_TO_ASICS)
                     {
@@ -76,27 +83,44 @@ namespace Zealot.manager
 
                                 I_subscribeToAsicsMessage.To(this);
                             }
-                            else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                                $" $только если текущее состояние {State.END_AUTHORIZATION}");
+                            else
+                            {
+                                Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
+                                    $" $только если текущее состояние {State.END_AUTHORIZATION}");
+
+                                destroy();
+
+                                return;
+                            }
 
                             invoke_event(() =>
                             {
-                                if (CurrentState == State.START_SUBSCRIBE_TO_ASICS)
+                                lock (StateInformation.Locker)
                                 {
-                                    Logger.S_E.To(this, $"Обьект начал подписку на получение сообщений от асиков, " +
-                                        $"ему заблокировали возможность уничтжения, далее состояние было выставлено на [{State.START_SUBSCRIBE_TO_ASICS}]" +
-                                            $" и ожидалось что в ответном сообщении снимится возможность уничтожения, " +
-                                               $"а так же смениться состояние на [{State.RUNNING}]");
+                                    if (CurrentState == State.START_SUBSCRIBE_TO_ASICS)
+                                    {
+                                        Logger.S_E.To(this, $"Обьект начал подписку на получение сообщений от асиков, " +
+                                            $"ему заблокировали возможность уничтжения, далее состояние было выставлено на [{State.START_SUBSCRIBE_TO_ASICS}]" +
+                                                $" и ожидалось что в ответном сообщении снимится возможность уничтожения, " +
+                                                   $"а так же смениться состояние на [{State.RUNNING}]");
 
-                                    DecrementEvent();
+                                        DecrementEvent();
 
-                                    destroy();
+                                        destroy();
+                                    }
                                 }
                             },
                             10000, Header.Events.SYSTEM);
                         }
-                        else Logger.I.To(this, $"Неудалось начать подписку на прослушивание сообщений от асиков, " +
-                                "так как обьект приступил к своему уничтожению.");
+                        else
+                        {
+                            Logger.I.To(this, $"Неудалось начать подписку на прослушивание сообщений от асиков, " +
+                                    "так как обьект приступил к своему уничтожению.");
+
+                            destroy();
+
+                            return;
+                        }
                     }
                     else if (nextState == State.END_AUTHORIZATION)
                     {
@@ -135,8 +159,15 @@ namespace Zealot.manager
 
                             I_getAsics.To(this);
                         }
-                        else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                            $" $только если текущее состояние {State.AUTHORIZATION}");
+                        else
+                        {
+                            Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
+                                $" $только если текущее состояние {State.AUTHORIZATION}");
+
+                            destroy();
+
+                            return;
+                        }
                     }
                     else if (nextState == State.AUTHORIZATION)
                     {
@@ -168,6 +199,8 @@ namespace Zealot.manager
                                                 Logger.W.To(this, $"Неудалось запустить прослушку TCP соединения.");
 
                                                 destroy();
+
+                                                return;
                                             }
                                         }
                                     }
@@ -176,7 +209,7 @@ namespace Zealot.manager
 
                             string listenResultConnectionName = $"{BUS.RECEIVE_RESULT_TCP_CONNECTION}[Addr:{RemoteAddress}, Port:{RemotePort}]";
                             listen_message<bool, TcpClient>(listenResultConnectionName)
-                                .output_to((isSuccsess, client) =>
+                                .output_to((isSuccess, client) =>
                                 {
                                     if (IsRunning == false) return;
 
@@ -184,7 +217,7 @@ namespace Zealot.manager
                                     {
                                         if (StateInformation.IsStart && !StateInformation.IsDestroy)
                                         {
-                                            if (isSuccsess)
+                                            if (isSuccess)
                                             {
                                                 Logger.I.To(this, $"Получен tcp клиент.");
 
@@ -199,10 +232,12 @@ namespace Zealot.manager
                                                 // НУЖНО ОПОВЕСТИТЬ КЛИНТА ПО SSL
 
                                                 destroy();
+
+                                                return;
                                             }
                                         }
                                     }
-                                },
+                                } ,
                                 Header.Events.SYSTEM);
 
                             obj<ReceiveTCPConnection>($"ReceiveTcpConnection[Addr:{RemoteAddress}, Port:{RemotePort}]",

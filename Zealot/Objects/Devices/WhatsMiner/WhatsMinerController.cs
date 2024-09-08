@@ -83,7 +83,7 @@ namespace Zealot.device.whatsminer
 
             lock (StateInformation.Locker)
             {
-                if (StateInformation.IsDestroy || StateInformation.IsStart == false) return;
+                if (StateInformation.IsDestroy) return;
 
                 if (nextState == State.DOWNLOAD_MAC_AND_UPLOAD)
                 {
@@ -219,7 +219,7 @@ namespace Zealot.device.whatsminer
 
             lock (StateInformation.Locker)
             {
-                if (StateInformation.IsDestroy || StateInformation.IsStart == false) return;
+                if (StateInformation.IsDestroy) return;
 
                 try
                 {

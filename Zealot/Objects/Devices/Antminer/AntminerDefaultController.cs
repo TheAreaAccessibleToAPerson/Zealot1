@@ -52,7 +52,7 @@ namespace Zealot.device
 
             lock (StateInformation.Locker)
             {
-                if (StateInformation.IsDestroy || StateInformation.IsStart == false) return;
+                if (StateInformation.IsDestroy) return;
 
                 if (nextState == State.GET_SYSTEM_INFO)
                 {
@@ -416,7 +416,7 @@ namespace Zealot.device
                         }
                         else
                         {
-                            Logger.W.To(this, $"Stats information is null");
+                            Logger.W.To(this, $"State information is null");
 
                             destroy();
 
@@ -439,6 +439,8 @@ namespace Zealot.device
                     Logger.W.To(this, $"{ex}");
 
                     destroy();
+
+                    return;
                 }
             }
         }

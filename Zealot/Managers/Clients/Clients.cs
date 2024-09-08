@@ -22,40 +22,53 @@ namespace Zealot.manager
             listen_message<TcpClient>(BUS.ADD_CLIENT)
                 .output_to((client) =>
                 {
-                    string key = $"{((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString()}:" + 
+                    string key = $"{((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString()}:" +
                         $"{((IPEndPoint)client.Client.RemoteEndPoint).Port}";
 
-                    if (_clients.TryGetValue(key, out MainClient c))
+                    if (StateInformation.IsStart && !StateInformation.IsDestroy)
                     {
-                        c.destroy();
+                        if (try_obj(key, out Client obj))
+                        {
+                            Logger.I.To(this, $"Клиент с ключом {key} уже подключон.");
+                        }
+                        else
+                        {
+                            Logger.I.To(this, $"Connection new client:{key}");
+
+                            Client newClient = obj<Client>(key, client);
+
+                            _clients.Add(key, newClient);
+                        }
+
                     }
-
-                    Logger.I.To(this, $"Connection new client:{key}");
-
-                    Client newClient = obj<Client>(key, client);
-
-                    _clients.Add(key, newClient);
+                    else
+                    {
+                        Logger.W.To(this, $"Неудалось поключить нового клинта {key}, " +
+                            " так как ClientsManager завершает свою работу.");
+                    }
                 });
 
             listen_message<Client>(BUS.DELETE_CLIENT)
                 .output_to((client) =>
-                {    
+                {
                     if (_clients.Remove(client.GetKey()))
                     {
                         Logger.I.To(this, $"Client remove from ClientCollection.");
                     }
-                    else 
+                    else
                     {
                         Logger.S_E.To(this, $"Client not remove from ClientCollection.");
 
                         destroy();
+
+                        return;
                     }
                 });
         }
 
         void Start()
         {
-            Logger.S_I.To(this, "starting ...");
+            SystemInformation("starting ...");
             {
                 obj<network.Server>(network.Server.NAME);
             }

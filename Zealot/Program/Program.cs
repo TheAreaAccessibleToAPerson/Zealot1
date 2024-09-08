@@ -32,7 +32,6 @@ namespace Zealot
             //AddAsic.StartScript19();
             //AddAsic.StartScript20();
             //AddAsic.RemoveDataBase();
-
             obj<manager.Clients>(manager.Clients.NAME);
         }
 
@@ -49,7 +48,7 @@ namespace Zealot
 
         void Destruction()
         {
-            Logger.S_I.To(this, "destruction ...");
+            SystemInformation("destruction...");
             {
                 //...
             }
@@ -60,24 +59,24 @@ namespace Zealot
             {
                 //...
             }
-            Logger.S_I.To(this, "destroyed");
+            SystemInformation("destroyed");
         }
 
         void Stop()
         {
-            Logger.S_I.To(this, "stopping ...");
+            SystemInformation("stopping ...");
             {
-                if (StateInformation.IsStart)
+                if (StateInformation.IsCallStart)
                 {
                     ReadLine.Stop(this);
                 }
             }
-            Logger.S_I.To(this, "stop");
+            SystemInformation("stop");
         }
 
         void StartConfigurate()
         {
-            Logger.S_I.To(this, "start configurate ...");
+            SystemInformation("start configurate ...");
             {
                 if (MongoDB.DefineConnection("mongodb://localhost:27017", out string defineInfo))
                 {
@@ -85,11 +84,11 @@ namespace Zealot
 
                     if (MongoDB.StartConnection(out string startConnectionInfo))
                     {
-                        Logger.S_I.To(this, startConnectionInfo);
+                        SystemInformation(startConnectionInfo);
                     }
                     else
                     {
-                        Logger.S_E.To(this, startConnectionInfo);
+                        SystemInformation(startConnectionInfo);
 
                         destroy();
 
@@ -98,14 +97,14 @@ namespace Zealot
                 }
                 else
                 {
-                    Logger.S_E.To(this, defineInfo);
+                    SystemInformation(defineInfo);
 
                     destroy();
 
                     return;
                 }
             }
-            Logger.S_I.To(this, "end configurate");
+            SystemInformation("end configurate");
         }
 
         public void Command(string command)

@@ -4,7 +4,7 @@ using Butterfly;
 
 namespace Zealot.manager.network
 {
-    public class Server : Controller.Board
+    public class Server : Controller
     {
         public const string NAME = "Server[Listen new clients]";
 
@@ -26,6 +26,8 @@ namespace Zealot.manager.network
                     {
                         while (_listener.Pending())
                         {
+                            Logger.I.To(this, "Новый клиент.");
+
                             TcpClient client = _listener.AcceptTcpClient();
 
                             i_listenClients.To(client);
@@ -33,9 +35,11 @@ namespace Zealot.manager.network
                     }
                     catch (Exception ex)
                     {
-                        Logger.W.To(this, $"Listen client exception.{ex.ToString()}");
+                        Logger.I.To(this, $"Listen client exception.{ex.ToString()}");
 
                         destroy();
+
+                        return;
                     }
                 }
             });
@@ -43,21 +47,21 @@ namespace Zealot.manager.network
 
         void Configurate()
         {
-            Logger.I.To(this, "start configuration");
+            SystemInformation("start configuration");
             {
                 string address = Butterfly.Program.ADDRESS;
                 int port = Butterfly.Program.PORT;
 
                 _listener = new TcpListener(new IPEndPoint(IPAddress.Parse(address), port));
 
-                Logger.I.To(this, $"Bind address:{address}, port:{port}");
+                SystemInformation($"Bind address:{address}, port:{port}");
             }
-            Logger.I.To(this, "end configuration");
+            SystemInformation("end configuration");
         }
 
         void Start()
         {
-            Logger.I.To(this, $"starting ...");
+            SystemInformation($"starting ...");
             {
                 try
                 {
@@ -66,37 +70,37 @@ namespace Zealot.manager.network
                 }
                 catch (Exception ex)
                 {
-                    Logger.W.To(this, $"{ex}");
+                    SystemInformation(ex.ToString(), ConsoleColor.Red);
 
                     destroy();
+
+                    return;
                 }
             }
-            Logger.I.To(this, $"star");
+            SystemInformation($"star");
         }
 
         void Destroyed()
         {
+            SystemInformation("destroyed");
+
             _isRunning = false;
         }
 
         void Stop()
         {
-            Logger.I.To(this, "start stopping");
+            SystemInformation("start stopping");
             {
-                if (StateInformation.IsConfigurate)
+                try
                 {
-
-                    try
-                    {
-                        _listener.Stop();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.I.To(this, ex.Message);
-                    }
+                    _listener.Stop();
+                }
+                catch (Exception ex)
+                {
+                    Logger.I.To(this, ex.Message);
                 }
             }
-            Logger.I.To(this, "end stopping");
+            SystemInformation("end stopping");
         }
     }
 }

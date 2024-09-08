@@ -93,7 +93,7 @@ namespace Zealot.device
         {
             Logger.I.To(this, $"run starting ...");
             {
-                //I_setState.To(State.GET_SYSTEM_INFO);
+                I_setState.To(State.GET_INFO);
             }
             Logger.I.To(this, $"end starting.");
         }

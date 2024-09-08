@@ -508,7 +508,7 @@ namespace Zealot.manager
             {
                 lock (StateInformation.Locker)
                 {
-                    if (StateInformation.IsStart)
+                    if (!StateInformation.IsDestroy)
                     {
                         foreach (string a in _addresses)
                         {
@@ -613,7 +613,7 @@ namespace Zealot.manager
 
                 lock (StateInformation.Locker)
                 {
-                    if (StateInformation.IsStart)
+                    if (!StateInformation.IsDestroy)
                     {
                         // Был найден.
                         bool isEmpty = true;
@@ -757,7 +757,7 @@ namespace Zealot.manager
 
                 lock (StateInformation.Locker)
                 {
-                    if (StateInformation.IsStart)
+                    if (!StateInformation.IsDestroy)
                     {
                         _diopozoneAddresses.Add(new string[] { firstAddress, lastAddress });
                         _diopozoneAddressesList.Add(
@@ -811,7 +811,7 @@ namespace Zealot.manager
             {
                 Logger.I.To(this, $"Попытка сменить текущее состояние [{_currentState}] на [{nextState}].");
 
-                if (StateInformation.IsStart || StateInformation.IsStarting)
+                if (!StateInformation.IsDestroy && (StateInformation.IsStart || StateInformation.IsStarting))
                 {
                     if (_currentState == State.WAIT_COMMAND)
                     {
@@ -1048,7 +1048,7 @@ namespace Zealot.manager
                                 {
                                     string a = doc[BsonDocumentType.ADDRESS].ToString();
 
-                                    Logger.S_I.To(this, $"Получили ip аддресс из базы данных [{a}]");
+                                    //Logger.S_I.To(this, $"Получили ip аддресс из базы данных [{a}]");
 
                                     _addresses.Add(a);
                                     _scanAddresses.Add(a, false);
@@ -1066,7 +1066,7 @@ namespace Zealot.manager
                                     {
                                         string a = doc[BsonDocumentType.DIOPOZONE_ADDRESSES].ToString();
 
-                                        Logger.S_I.To(this, $"Получили диопозон ip аддрессов из базы данных [{a}]");
+                                        //Logger.S_I.To(this, $"Получили диопозон ip аддрессов из базы данных [{a}]");
 
                                         List<string> diopozoneAddresses = Address.GetAddresses(new Address.Values()
                                         {
@@ -1102,11 +1102,6 @@ namespace Zealot.manager
 
                                         return;
                                     }
-                                }
-                                else
-                                {
-                                    Logger.S_E.To(this, "Неизветный тип заголовка BsonDocument " +
-                                        $"который должен хранить адресс или диапоозон адрессов.");
                                 }
                             }
                         }

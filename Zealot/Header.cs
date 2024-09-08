@@ -103,5 +103,13 @@ namespace Zealot
             }
             Logger.S_I.To(this, "start...");
         }
+
+        void Stop()
+        {
+            Logger.S_I.To(this, "stopping...");
+            {
+                //...
+            }
+        }
     }
 }

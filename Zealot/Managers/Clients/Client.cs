@@ -77,7 +77,7 @@ namespace Zealot.manager
         {
             Logger.I.To(this, "stopping ...");
             {
-                if (StateInformation.IsCallConstruction)
+                if (StateInformation.IsCallStart)
                 {
                     // Отпишимся от получение сообщений.
                     // Из машинок.

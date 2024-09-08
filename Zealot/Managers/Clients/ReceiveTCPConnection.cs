@@ -42,6 +42,8 @@ namespace Zealot.manager
                         Logger.W.To(this, $"Listen client exception.{ex.ToString()}");
 
                         destroy();
+
+                        return;
                     }
                 }
 
@@ -52,6 +54,8 @@ namespace Zealot.manager
                     i_returnResult.To(false, null);
 
                     destroy();
+
+                    return;
                 }
             });
         }
@@ -69,10 +73,13 @@ namespace Zealot.manager
 
                     Logger.I.To(this, $"Bind address:{address}, port:{_port}");
                 }
-                else 
+                else
                 {
                     Logger.S_E.To(this, info);
+
                     destroy();
+
+                    return;
                 }
             }
             Logger.I.To(this, "end configuration");
@@ -90,9 +97,6 @@ namespace Zealot.manager
 
                     i_returnStartingReceiveClient.To(true, _port);
                 }
-                catch (SocketException sEx)
-                {
-                }
                 catch (Exception ex)
                 {
                     i_returnStartingReceiveClient.To(false, _port);
@@ -100,6 +104,8 @@ namespace Zealot.manager
                     Logger.W.To(this, $"{ex}");
 
                     destroy();
+
+                    return;
                 }
             }
             Logger.I.To(this, $"star");
@@ -114,7 +120,7 @@ namespace Zealot.manager
         {
             Logger.I.To(this, "start stopping");
             {
-                if (StateInformation.IsConfigurate)
+                if (StateInformation.IsCallConfigurate)
                 {
                     try
                     {

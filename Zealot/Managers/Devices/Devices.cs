@@ -174,7 +174,7 @@ namespace Zealot.manager
                 {
                     lock (StateInformation.Locker)
                     {
-                        if (!StateInformation.IsDestroy && StateInformation.IsStart)
+                        if (!StateInformation.IsDestroy)
                         {
                             Logger.I.To(this, $"Вы добавлили ip адресс девайса который не смог считать данные.");
                         }
@@ -201,7 +201,7 @@ namespace Zealot.manager
 
                     lock (StateInformation.Locker)
                     {
-                        if (!StateInformation.IsDestroy && StateInformation.IsStart)
+                        if (!StateInformation.IsDestroy)
                         {
                             if (device == null)
                             {
@@ -901,7 +901,7 @@ namespace Zealot.manager
             }
             else if (value.Contains("<TITLE>用户界面</TITLE>"))
             {
-                //return IceRiver.NAME;
+                return IceRiver.NAME;
             }
             else if (value.Contains("<title>PROMMINER FW</title>"))
             {

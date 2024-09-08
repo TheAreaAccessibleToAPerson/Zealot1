@@ -515,12 +515,13 @@ namespace Butterfly.system.objects.main.manager
 
         public bool TryIncrement()
         {
-            if (_stateInformation.IsDestroying) return false;
+            if (_stateInformation.IsDestroying || _stateInformation.IsDeferredDestroying || _stateInformation.IsDestroy) return false;
 
             lock (_stateInformation.Locker)
             {
-                if (_stateInformation.IsDestroying) return false;
+                if (_stateInformation.IsDestroying || _stateInformation.IsDeferredDestroying || _stateInformation.IsDestroy) return false;
 
+                SystemInformation("Инкрементируем(закрываем возможность уничтожения)", ConsoleColor.Yellow);
                 _index++;
 
                 return true;
@@ -531,9 +532,13 @@ namespace Butterfly.system.objects.main.manager
         {
             lock (_stateInformation.Locker)
             {
+                SystemInformation("Декрипентируем(открываем возможность уничтожения)", ConsoleColor.Yellow);
                 if ((--_index) <= 0 && _stateInformation.IsDestroying)
+                {
+                    SystemInformation("Обьект уничтожается(открываем возомжность долнейшего уничтожения.)", ConsoleColor.Yellow);
                     ((manager.IDispatcher)_DOMInformation.CurrentObject).
                         Process(manager.Dispatcher.Command.STOPPING_OBJECT);
+                }
             }
         }
     }
