@@ -1,21 +1,59 @@
-using MongoDB.Bson;
-using static Zealot.manager.ClientMain;
+using System.Net;
+using System.Net.Sockets;
+using Butterfly;
 
-namespace Zealot.script
+namespace Zealot.manager
 {
-    /// <summary>
-    /// Скрипт для добовления клинтов.
-    /// </summary> <summary>
-    public static class AddClient
+    public abstract class ClientsController : ClientsMain
     {
-        public static void StartScript()
+
+        protected void AddConnectionClient(TcpClient client)
         {
-            AddToDB(true, "root", "root", "00000000", "root", "root@main.ru", "root");
+            string key = $"{((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString()}:" +
+                $"{((IPEndPoint)client.Client.RemoteEndPoint).Port}";
+
+            if (StateInformation.IsStart && !StateInformation.IsDestroy)
+            {
+                if (try_obj(key, out Client obj))
+                {
+                    Logger.I.To(this, $"Клиент с ключом {key} уже подключон.");
+                }
+                else
+                {
+                    Logger.I.To(this, $"Connection new client:{key}");
+
+                    Client newClient = obj<Client>(key, client);
+
+                    Clients.Add(key, newClient);
+                }
+            }
+            else
+            {
+                Logger.W.To(this, $"Неудалось поключить нового клинта {key}, " +
+                    " так как ClientsManager завершает свою работу.");
+            }
         }
 
-        private static void AddToDB(bool isActivated, string login, string password, string id, 
-            string name, string email, string accessRights)
+        protected void RemoveDisconnectionClient(Clients.IClientConnect client)
         {
+            if (Clients.Remove(client.GetKey()))
+            {
+                Logger.I.To(this, $"Client remove from ClientCollection.");
+            }
+            else
+            {
+                Logger.S_E.To(this, $"Client not remove from ClientCollection.");
+
+                destroy();
+
+                return;
+            }
+        }
+
+        protected void AddNewClient(AddNewClient addNewClientData, Clients.IClientConnect client, 
+            IReturn<AddNewClientResult> @return)
+        {
+            /*
             if (Zealot.MongoDB.ContainsDatabase(DB.NAME, out string containsDBerror))
             {
                 System.Console.WriteLine($"База данныx {DB.NAME} уже создана.");
@@ -132,7 +170,7 @@ namespace Zealot.script
 
                 return;
             }
+            */
         }
     }
-
 }

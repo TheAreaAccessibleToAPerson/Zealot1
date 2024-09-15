@@ -6,6 +6,36 @@ namespace Zealot
 {
     public static class MongoDB
     {
+        public struct Error 
+        {
+            private const string _ = "CODE_ERROR:";
+
+            /// <summary>
+            /// При работе с БД была возвращена ошибка.
+            /// </summary> 
+            public const string ERROR_FROM_DB = _ + "x1000";
+
+            /// <summary>
+            /// Неудалось получить доступ к базе данных.
+            /// </summary>
+            public const string NOT_CREATING_DB = _ + "x1001";
+
+            /// <summary>
+            /// Неудалось получить доступ к базе данных.
+            /// </summary>
+            public const string NOT_CREATING_COLLECTION = _ + "x1002";
+
+            /// <summary>
+            /// Из бызы данных был получен обьект равный null.
+            /// </summary>
+            public const string VALUE_IS_NULL = _ + "x1003";
+
+            /// <summary>
+            /// Исключение во время обработки полученых из базы данных обьекта.
+            /// </summary>
+            public const string VALUE_EXCEPTION  = _ + "x1004";
+        }
+
         public const int DEFAULT_PORT = 27017;
 
         public const string HEADER_DB = "header db";

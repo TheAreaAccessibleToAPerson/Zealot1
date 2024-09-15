@@ -354,6 +354,10 @@ namespace Zealot.device
                                         }
                                     }
 
+                                    string miningPowerName = "GH";
+                                    if (Status.model.ToLower().Contains("z15"))
+                                        miningPowerName = "Ksol";
+
                                     OutputDataJson data = new OutputDataJson()
                                     {
                                         UniqueNumber = AsicInit.UniqueNumber,
@@ -378,7 +382,7 @@ namespace Zealot.device
                                         MiningPower2Size = Status.rate2,
                                         MiningPower3Size = Status.rate3,
 
-                                        MiningPowerName = "GH",
+                                        MiningPowerName = miningPowerName,
 
                                         Temp1 = Status.chipTemp1,
                                         Temp2 = Status.chipTemp2,

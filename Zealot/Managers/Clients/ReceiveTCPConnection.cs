@@ -64,11 +64,12 @@ namespace Zealot.manager
         {
             Logger.I.To(this, "start configuration");
             {
-                if (FreePortsStorage.GetFreePort(GetKey(), out _port, out string info))
+                if (FreePortsStorage.GetFreePort(GetNodeID().ToString(), out _port, out string info))
                 {
                     Logger.I.To(this, info);
 
                     string address = Butterfly.Program.ADDRESS;
+                    //_listener = new TcpListener(new IPEndPoint(IPAddress.Parse(address), _port));
                     _listener = new TcpListener(new IPEndPoint(IPAddress.Parse(address), _port));
 
                     Logger.I.To(this, $"Bind address:{address}, port:{_port}");

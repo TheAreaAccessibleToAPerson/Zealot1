@@ -16,6 +16,7 @@ namespace Zealot
 
     public class ClientInitialize
     {
+        public string FullName {set;get;} = "";
         public string ID { set; get; } = "";
         public string Name { set; get; } = "";
         public string Email { set; get; } = "";

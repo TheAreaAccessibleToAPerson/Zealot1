@@ -8,7 +8,7 @@ namespace Zealot.manager
     // МАШИНЫ НЕ СОХРАНЕНЫЕ В БАЗЕ ДАННЫХ.
     public sealed class Client : ClientController
     {
-        private IInput<Client> i_removeFromClientsCollection;
+        private IInput<Clients.IClientConnect> i_removeFromClientsCollection;
 
         void Start()
         {
@@ -31,10 +31,16 @@ namespace Zealot.manager
 
             add_event(Header.Events.RECEIVE_MESSAGE_FROM_CLIENT, ReceiveMessageFromClient);
 
-            send_echo_1_1<List<AddNewAsic>, List<AddNewAsicsResult>>(ref I_addNewAsics, Devices.BUS.Asic.ADD_NEW_ASIC)
+            /*
+            send_echo_2_1<List<AddNewAsic>, Clients.IClientConnect, List<AddNewAsicsResult>>(ref I_addNewAsics, Devices.BUS.Asic.ADD_NEW_ASIC)
                 .output_to(EAddNewAsicsResult, Header.Events.SYSTEM);
+                */
 
-            send_message(ref i_removeFromClientsCollection, Clients.BUS.DELETE_CLIENT);
+            send_echo_2_1<AddNewClient, Clients.IClientConnect, AddNewClientResult>(ref I_addNewClient, Clients.BUS.ADD_NEW_CLIENT)
+                .output_to(EAddNewClientResult, Header.Events.SYSTEM);
+
+            send_message(ref i_removeFromClientsCollection, Clients.BUS.REMOVE_DISCONNECTION_CLIENT);
+
             send_echo_1_1<Devices.IClientConnect, List<AsicInit>>(ref I_getAsics, Devices.BUS.Client.GET_CLIENT_ASICS)
                 .output_to((asics) =>
                 {
@@ -174,6 +180,32 @@ namespace Zealot.manager
                     return;
                 }
             }
+        }
+
+        public struct State
+        {
+            public const string NONE = "None";
+
+            // 1)Происзодит авторизацию.
+            // Проверяет данные, создает TCP подключение.
+            public const string AUTHORIZATION = "Authorization";
+
+            // 2)Запрашивает данные своих машинок.
+            public const string GET_ASICS_INFORMATION = "GetAsicsInformation";
+
+            // 3)Конец авторизации отправляет данные о клинте.
+            // Отправляет данные кленту.
+            public const string END_AUTHORIZATION = "EndAuthorization";
+
+            /// <summary>
+            /// Начинаем подключение к машинам.
+            /// </summary> 
+            public const string START_SUBSCRIBE_TO_ASICS = "StartSubscribeToAsics";
+
+            /// <summary>
+            /// Все клиент в работе.
+            /// </summary> 
+            public const string RUNNING = "Running";
         }
     }
 }

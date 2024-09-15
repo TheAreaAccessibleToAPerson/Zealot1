@@ -4,35 +4,9 @@ using Butterfly;
 
 namespace Zealot.manager
 {
-    public abstract class ClientController : MainClient, Devices.IClientConnect
+    public abstract class ClientController : ClientMain
     {
-        public struct State
-        {
-            public const string NONE = "None";
 
-            // 1)Происзодит авторизацию.
-            // Проверяет данные, создает TCP подключение.
-            public const string AUTHORIZATION = "Authorization";
-
-            // 2)Запрашивает данные своих машинок.
-            public const string GET_ASICS_INFORMATION = "GetAsicsInformation";
-
-            // 3)Конец авторизации отправляет данные о клинте.
-            // Отправляет данные кленту.
-            public const string END_AUTHORIZATION = "EndAuthorization";
-
-            /// <summary>
-            /// Начинаем подключение к машинам.
-            /// </summary> 
-            public const string START_SUBSCRIBE_TO_ASICS = "StartSubscribeToAsics";
-
-            /// <summary>
-            /// Все клиент в работе.
-            /// </summary> 
-            public const string RUNNING = "Running";
-        }
-
-        protected string CurrentState { set; get; } = State.NONE;
 
         /// <summary>
         /// Запрашиваем все машинки которые пренадлежат клиенту.
@@ -53,40 +27,40 @@ namespace Zealot.manager
             {
                 if (StateInformation.IsStart && !StateInformation.IsDestroy)
                 {
-                    if (nextState == State.RUNNING)
+                    if (nextState == Client.State.RUNNING)
                     {
-                        if (CurrentState == State.START_SUBSCRIBE_TO_ASICS)
+                        if (CurrentState == Client.State.START_SUBSCRIBE_TO_ASICS)
                         {
                             Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
 
-                            CurrentState = State.RUNNING;
+                            CurrentState = Client.State.RUNNING;
                         }
                         else
                         {
                             Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                                $" $только если текущее состояние {State.END_AUTHORIZATION}");
+                                $" $только если текущее состояние {Client.State.END_AUTHORIZATION}");
 
                             destroy();
 
                             return;
                         }
                     }
-                    else if (nextState == State.START_SUBSCRIBE_TO_ASICS)
+                    else if (nextState == Client.State.START_SUBSCRIBE_TO_ASICS)
                     {
                         if (TryIncrementEvent())
                         {
-                            if (CurrentState == State.END_AUTHORIZATION)
+                            if (CurrentState == Client.State.END_AUTHORIZATION)
                             {
                                 Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
 
-                                CurrentState = State.START_SUBSCRIBE_TO_ASICS;
+                                CurrentState = Client.State.START_SUBSCRIBE_TO_ASICS;
 
                                 I_subscribeToAsicsMessage.To(this);
                             }
                             else
                             {
                                 Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                                    $" $только если текущее состояние {State.END_AUTHORIZATION}");
+                                    $" $только если текущее состояние {Client.State.END_AUTHORIZATION}");
 
                                 destroy();
 
@@ -97,12 +71,12 @@ namespace Zealot.manager
                             {
                                 lock (StateInformation.Locker)
                                 {
-                                    if (CurrentState == State.START_SUBSCRIBE_TO_ASICS)
+                                    if (CurrentState == Client.State.START_SUBSCRIBE_TO_ASICS)
                                     {
                                         Logger.S_E.To(this, $"Обьект начал подписку на получение сообщений от асиков, " +
-                                            $"ему заблокировали возможность уничтжения, далее состояние было выставлено на [{State.START_SUBSCRIBE_TO_ASICS}]" +
+                                            $"ему заблокировали возможность уничтжения, далее состояние было выставлено на [{Client.State.START_SUBSCRIBE_TO_ASICS}]" +
                                                 $" и ожидалось что в ответном сообщении снимится возможность уничтожения, " +
-                                                   $"а так же смениться состояние на [{State.RUNNING}]");
+                                                   $"а так же смениться состояние на [{Client.State.RUNNING}]");
 
                                         DecrementEvent();
 
@@ -122,13 +96,13 @@ namespace Zealot.manager
                             return;
                         }
                     }
-                    else if (nextState == State.END_AUTHORIZATION)
+                    else if (nextState == Client.State.END_AUTHORIZATION)
                     {
-                        if (CurrentState == State.GET_ASICS_INFORMATION)
+                        if (CurrentState == Client.State.GET_ASICS_INFORMATION)
                         {
                             Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
 
-                            CurrentState = State.END_AUTHORIZATION;
+                            CurrentState = Client.State.END_AUTHORIZATION;
 
                             if (ClientInitialize != null)
                             {
@@ -136,46 +110,46 @@ namespace Zealot.manager
                                 SendSslMessage(ServerMessage.GetMessageArray(ServerMessage.SSLType.CLIENT_DATA,
                                     JsonSerializer.SerializeToUtf8Bytes(ClientInitialize)));
 
-                                i_setState.To(State.START_SUBSCRIBE_TO_ASICS);
+                                i_setState.To(Client.State.START_SUBSCRIBE_TO_ASICS);
                             }
                             else
                             {
-                                Logger.S_E.To(this, $"В момент смены состояния на {State.END_AUTHORIZATION} уже должно быть " +
+                                Logger.S_E.To(this, $"В момент смены состояния на {Client.State.END_AUTHORIZATION} уже должно быть " +
                                     "проинициализировано поле ClientInitialize");
 
                                 destroy();
                             }
                         }
                         else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                            $" $только если текущее состояние {State.GET_ASICS_INFORMATION}");
+                            $" $только если текущее состояние {Client.State.GET_ASICS_INFORMATION}");
                     }
-                    else if (nextState == State.GET_ASICS_INFORMATION)
+                    else if (nextState == Client.State.GET_ASICS_INFORMATION)
                     {
-                        if (CurrentState == State.AUTHORIZATION)
+                        if (CurrentState == Client.State.AUTHORIZATION)
                         {
                             Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
 
-                            CurrentState = State.GET_ASICS_INFORMATION;
+                            CurrentState = Client.State.GET_ASICS_INFORMATION;
 
                             I_getAsics.To(this);
                         }
                         else
                         {
                             Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                                $" $только если текущее состояние {State.AUTHORIZATION}");
+                                $" $только если текущее состояние {Client.State.AUTHORIZATION}");
 
                             destroy();
 
                             return;
                         }
                     }
-                    else if (nextState == State.AUTHORIZATION)
+                    else if (nextState == Client.State.AUTHORIZATION)
                     {
-                        if (CurrentState == State.NONE)
+                        if (CurrentState == Client.State.NONE)
                         {
                             Logger.I.To(this, $"NextState:{CurrentState}->{nextState}");
 
-                            CurrentState = State.AUTHORIZATION;
+                            CurrentState = Client.State.AUTHORIZATION;
 
                             string listenStartingListenConnectionName = $"{BUS.STARTING_LISTEN_TCP_CONNECTION}[Addr:{RemoteAddress}, Port:{RemotePort}]";
                             listen_message<bool, int>(listenStartingListenConnectionName)
@@ -223,7 +197,7 @@ namespace Zealot.manager
 
                                                 SetTcpClient(client);
 
-                                                i_setState.To(State.GET_ASICS_INFORMATION);
+                                                i_setState.To(Client.State.GET_ASICS_INFORMATION);
                                             }
                                             else
                                             {
@@ -248,47 +222,12 @@ namespace Zealot.manager
                                 });
                         }
                         else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                            $" $только если текущее состояние {State.NONE}");
+                            $" $только если текущее состояние {Client.State.NONE}");
                     }
                 }
             }
 
         }
 
-        public void SendMessage(byte[] message)
-        {
-            if (IsRunning && CurrentState == State.RUNNING)
-            {
-                SendTcpMessage(message);
-            }
-        }
-
-        public void SendMessage(string message)
-        {
-            if (IsRunning && CurrentState == State.RUNNING)
-            {
-                SendTcpMessage(message);
-            }
-        }
-
-        /// <summary>
-        /// По данному ID клиент хранится в нутри компании.
-        /// </summary>
-        public string GetClientID()
-        {
-            if (ClientInitialize != null)
-            {
-                return ClientInitialize.ID;
-            }
-            else
-            {
-                Logger.S_E.To(this, $"Вы запросили id клиента(в компании), но к этому моменту еще небыло проинициализировано поле" +
-                    $" в котором хранится данное значение.(CurrentState:{CurrentState})");
-
-                destroy();
-
-                return "";
-            }
-        }
     }
 }

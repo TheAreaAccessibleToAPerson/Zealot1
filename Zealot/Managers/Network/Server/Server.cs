@@ -16,7 +16,7 @@ namespace Zealot.manager.network
 
         void Construction()
         {
-            send_message(ref i_listenClients, Clients.BUS.ADD_CLIENT);
+            send_message(ref i_listenClients, Clients.BUS.ADD_CONNECTION_CLIENT);
 
             add_event(Header.Events.CLIENT_WORK, () =>
             {

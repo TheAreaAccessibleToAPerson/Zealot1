@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 public static class FreePortsStorage
 {
@@ -29,7 +31,7 @@ public static class FreePortsStorage
                 {
                     if (tcpi.LocalEndPoint.Port == pair.Key)
                     {
-                        // Порт занят.
+                        continue;
                     }
                     else
                     {

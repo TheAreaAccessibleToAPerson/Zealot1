@@ -1,5 +1,5 @@
 ﻿using MongoDB.Bson;
-using static Zealot.manager.MainClient;
+using static Zealot.manager.ClientMain;
 
 namespace Butterfly
 {

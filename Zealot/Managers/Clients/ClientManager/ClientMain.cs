@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Butterfly;
@@ -7,11 +6,15 @@ using MongoDB.Bson;
 
 namespace Zealot.manager
 {
-    public abstract class MainClient : Controller.Board.LocalField<TcpClient>
+    public abstract class ClientMain : Controller.Board.LocalField<TcpClient>, Devices.IClientConnect, Clients.IClientConnect
     {
         public const string NAME = "Client";
 
+        protected string CurrentState { set; get; } = Client.State.NONE;
+
         private TcpClient _tcpClient { set; get; }
+
+        private string _login, _password, _email, _accessRights, _fullName, _organizationName;
 
         protected void SetTcpClient(TcpClient client)
         {
@@ -41,7 +44,12 @@ namespace Zealot.manager
 
         // Добавляет новые асики. Отправлет задачу на выполнение в DeviceManager.
         // После получает результат.
-        protected IInput<List<AddNewAsic>> I_addNewAsics;
+        protected IInput<List<AddNewAsic>, Clients.IClientConnect> I_addNewAsics;
+
+        /// <summary>
+        /// Добовляет нового клиента в ClientsManager.
+        /// </summary>
+        protected IInput<AddNewClient, Clients.IClientConnect> I_addNewClient;
 
         public void SendTcpMessage(string message)
         {
@@ -72,6 +80,22 @@ namespace Zealot.manager
             if (IsRunning)
             {
                 I_sendSSLBytesMessage.To(message);
+            }
+        }
+
+        public void SendMessage(byte[] message)
+        {
+            if (IsRunning && CurrentState == Client.State.RUNNING)
+            {
+                SendTcpMessage(message);
+            }
+        }
+
+        public void SendMessage(string message)
+        {
+            if (IsRunning && CurrentState == Client.State.RUNNING)
+            {
+                SendTcpMessage(message);
             }
         }
 
@@ -131,6 +155,8 @@ namespace Zealot.manager
 
                             string str = Encoding.UTF8.GetString(buffer, index + 7, messageLength);
 
+                            Console(str);
+
                             LoginAndPassword j = JsonSerializer.Deserialize<LoginAndPassword>(str);
 
                             Logger.I.To(this, $"Login:{j.login}, Password:{j.password}");
@@ -144,9 +170,21 @@ namespace Zealot.manager
 
                             string str = Encoding.UTF8.GetString(buffer, index + 7, messageLength);
 
+                            Console(str);
+
                             List<AddNewAsic> j = JsonSerializer.Deserialize<List<AddNewAsic>>(str);
+                        }
+                        else if (type == 2)
+                        {
+                            Logger.I.To(this, "MessageType:2:AddNewClient");
+
+                            string str = Encoding.UTF8.GetString(buffer, index + 7, messageLength);
 
                             Console(str);
+
+                            AddNewClient j = JsonSerializer.Deserialize<AddNewClient>(str);
+
+                            I_addNewClient.To(j, this);
                         }
                         else
                         {
@@ -273,16 +311,41 @@ namespace Zealot.manager
 
                 return;
             }
-            else 
+            else
             {
                 Logger.I.To(this, $"Отправляем запрос на добавление {value.Count} асиков.");
 
-                I_addNewAsics.To(value);
+                I_addNewAsics.To(value, this);
             }
         }
 
         protected void EAddNewAsicsResult(List<AddNewAsicsResult> value)
         {
+
+        }
+
+        protected void EAddNewClientResult(AddNewClientResult value)
+        {
+        }
+
+        /// <summary>
+        /// По данному ID клиент хранится в нутри компании.
+        /// </summary>
+        public string GetClientID()
+        {
+            if (ClientInitialize != null)
+            {
+                return ClientInitialize.ID;
+            }
+            else
+            {
+                Logger.S_E.To(this, $"Вы запросили id клиента(в компании), но к этому моменту еще небыло проинициализировано поле" +
+                    $" в котором хранится данное значение.(CurrentState:{CurrentState})");
+
+                destroy();
+
+                return "";
+            }
         }
 
         public struct DB
@@ -373,7 +436,7 @@ namespace Zealot.manager
 
                                         if (ClientInitialize.IsInitialize)
                                         {
-                                            i_setState.To(ClientController.State.AUTHORIZATION);
+                                            i_setState.To(Client.State.AUTHORIZATION);
 
                                             return;
                                         }
@@ -428,6 +491,31 @@ namespace Zealot.manager
                     }
                 }
             }
+        }
+
+        public string GetFullNameClient()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetOrganizationName()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetLogin()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetPassword()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetEmail()
+        {
+            throw new NotImplementedException();
         }
 
         public struct Status
