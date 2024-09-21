@@ -38,7 +38,7 @@ namespace Zealot.manager
 
         void Construction()
         {
-            listen_echo_1_1<List<AddNewAsic>, List<AddNewAsicsResult>>(BUS.Asic.ADD_NEW_ASIC)
+            listen_echo_1_1<List<AddNewAsicJson>, List<AddNewAsicsResultJson>>(BUS.Asic.ADD_NEW_ASIC)
                 .output_to(EAddNewAsics, Header.Events.MONGO_DB);
 
             listen_echo_1_1<string, AsicInit>(BUS.Asic.GET_ASIC_INIT)
@@ -73,7 +73,7 @@ namespace Zealot.manager
             listen_echo_1_1<IClientConnect, List<string[]>>(BUS.Client.SUBSCRIBE_TO_MESSAGE)
                 .output_to((client, @return) =>
                 {
-                    string clientID = client.GetClientID();
+                    string clientID = client.GetClientLogin();
 
                     List<string[]> result = new();
                     if (client.IsAdmin())
@@ -101,7 +101,7 @@ namespace Zealot.manager
             listen_message<IClientConnect>(BUS.Client.UNSUBSCRIBE_TO_MESSAGE)
                 .output_to((client) =>
                 {
-                    string clientID = client.GetClientID();
+                    string clientID = client.GetClientLogin();
 
                     string info = "Devices:\n";
                     int index = 0;
@@ -121,7 +121,7 @@ namespace Zealot.manager
                 {
                     if (client.IsAdmin())
                     {
-                        Logger.I.To(this, $"Получение общей информации о машинках находящихся на площадке для клиента с правами Admin:{client.GetKey()}");
+                        //Logger.I.To(this, $"Получение общей информации о машинках находящихся на площадке для клиента с правами Admin:{client.GetKey()}");
 
                         @return.To(_allAsics.Values.ToList());
                     }
@@ -129,7 +129,7 @@ namespace Zealot.manager
                     {
                         List<AsicInit> result = new();
                         {
-                            string clientID = client.GetClientID();
+                            string clientID = client.GetClientLogin();
 
                             foreach (AsicInit asic in _allAsics.Values)
                                 if (clientID == asic.Client.ID)
@@ -312,7 +312,7 @@ namespace Zealot.manager
                         }
                     }
 
-                    Logger.I.To(this, info);
+                    //Logger.I.To(this, info);
                 },
                 Header.Events.WORK_DEVICE);
 
@@ -577,7 +577,7 @@ namespace Zealot.manager
             }
         }
 
-        private void EAddNewAsics(List<AddNewAsic> values, IReturn<List<AddNewAsicsResult>> @return)
+        private void EAddNewAsics(List<AddNewAsicJson> values, IReturn<List<AddNewAsicsResultJson>> @return)
         {
             if (values.Count == 0)
             {
@@ -586,7 +586,7 @@ namespace Zealot.manager
                 return;
             }
 
-            List<AddNewAsicsResult> result = new(values.Count);
+            List<AddNewAsicsResultJson> result = new(values.Count);
 
             lock (StateInformation.Locker)
             {
@@ -696,25 +696,25 @@ namespace Zealot.manager
 
                                         if (values[u].LocationName != "ЦЕХ" || values[u].LocationName != "КОН")
                                         {
-                                            result[u].LocationNameResult = AddNewAsicsResult.ERROR;
+                                            result[u].LocationNameResult = AddNewAsicsResultJson.ERROR;
                                             continue;
                                         }
                                         else
                                         {
-                                            result[u].LocationNameResult = AddNewAsicsResult.SUCCESS;
+                                            result[u].LocationNameResult = AddNewAsicsResultJson.SUCCESS;
                                         }
 
-                                        result[u].LocationNameResult = AddNewAsicsResult.SUCCESS;
+                                        result[u].LocationNameResult = AddNewAsicsResultJson.SUCCESS;
 
                                         if (locationNumber == result[u].LocationNumber &&
                                             indexPosition == result[u].IndexPosition)
                                         {
-                                            result[u].IndexPositionResult = AddNewAsicsResult.ERROR;
+                                            result[u].IndexPositionResult = AddNewAsicsResultJson.ERROR;
                                             continue;
                                         }
                                         else 
                                         {
-                                            result[u].IndexPositionResult = AddNewAsicsResult.SUCCESS;
+                                            result[u].IndexPositionResult = AddNewAsicsResultJson.SUCCESS;
                                         }
                                         
                                         result[u].Company = values[u].Company;
@@ -887,7 +887,7 @@ namespace Zealot.manager
             /// <summary>
             /// 
             /// </summary>
-            public string GetClientID();
+            public string GetClientLogin();
         }
     }
 

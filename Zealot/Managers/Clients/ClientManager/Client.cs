@@ -36,10 +36,11 @@ namespace Zealot.manager
                 .output_to(EAddNewAsicsResult, Header.Events.SYSTEM);
                 */
 
-            send_echo_2_1<AddNewClient, Clients.IClientConnect, AddNewClientResult>(ref I_addNewClient, Clients.BUS.ADD_NEW_CLIENT)
+            send_echo_2_2<AddNewClient, Clients.IClientConnect, AddNewClientResult, ClientData>(ref I_addNewClient, Clients.BUS.ADD_NEW_CLIENT)
                 .output_to(EAddNewClientResult, Header.Events.SYSTEM);
 
             send_message(ref i_removeFromClientsCollection, Clients.BUS.REMOVE_DISCONNECTION_CLIENT);
+            send_message(ref I_sendNewClient, Clients.BUS.SEND_NEW_CLIENT_TO_ADMINS);
 
             send_echo_1_1<Devices.IClientConnect, List<AsicInit>>(ref I_getAsics, Devices.BUS.Client.GET_CLIENT_ASICS)
                 .output_to((asics) =>
@@ -112,9 +113,9 @@ namespace Zealot.manager
 
         void Configurate()
         {
-            if (MongoDB.ContainsDatabase(DB.NAME, out string containsDBerror))
+            if (MongoDB.ContainsDatabase(Clients.DB.Client.NAME, out string containsDBerror))
             {
-                Logger.S_I.To(this, $"База данныx {DB.NAME} уже создана.");
+                Logger.S_I.To(this, $"База данныx {Clients.DB.Client.NAME} уже создана.");
             }
             else
             {
@@ -128,9 +129,9 @@ namespace Zealot.manager
                 }
                 else
                 {
-                    Logger.S_I.To(this, $"Создаем базу данных {DB.NAME}.");
+                    Logger.S_I.To(this, $"Создаем базу данных {Clients.DB.Client.NAME}.");
 
-                    if (MongoDB.TryCreatingDatabase(DB.NAME, out string info))
+                    if (MongoDB.TryCreatingDatabase(Clients.DB.Client.NAME, out string info))
                     {
                         Logger.S_I.To(this, info);
                     }
@@ -146,18 +147,18 @@ namespace Zealot.manager
             }
 
             // Проверяем наличие коллекции.
-            if (MongoDB.ContainsCollection<BsonDocument>(DB.NAME, DB.ClientsCollection.NAME,
+            if (MongoDB.ContainsCollection<BsonDocument>(Clients.DB.Client.NAME, Clients.DB.Client.Collection.NAME,
                 out string error))
             {
-                Logger.S_I.To(this, $"Коллекция [{DB.ClientsCollection.NAME}] в базе данных " +
-                    $" [{DB.NAME}] уже создана.");
+                Logger.S_I.To(this, $"Коллекция [{Clients.DB.Client.Collection.NAME}] в базе данных " +
+                    $" [{Clients.DB.Client.NAME}] уже создана.");
             }
             else
             {
                 // Коллекции нету, создадим ее.
                 if (error == "")
                 {
-                    if (MongoDB.TryCreatingCollection(DB.NAME, DB.ClientsCollection.NAME,
+                    if (MongoDB.TryCreatingCollection(Clients.DB.Client.NAME, Clients.DB.Client.Collection.NAME,
                         out string info))
                     {
                         Logger.S_I.To(this, info);

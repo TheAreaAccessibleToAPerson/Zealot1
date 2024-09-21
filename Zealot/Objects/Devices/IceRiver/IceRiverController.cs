@@ -151,7 +151,6 @@ namespace Zealot.device
 
         void Result(string str)
         {
-            SystemInformation(str);
             if (IsRun == false) return;
 
             lock (StateInformation.Locker)

@@ -88,13 +88,37 @@ namespace Zealot.manager
 
         void Start()
         {
-            Logger.S_I.To(this, "starting ...");
+            SystemInformation("starting ...");
             {
                 _currentState = State.WAIT_COMMAND;
 
                 ReadLine.Start(this);
             }
-            Logger.S_I.To(this, "start");
+            SystemInformation("start");
+        }
+
+        void Stop()
+        {
+            SystemInformation("stopping ...");
+            {
+
+            }
+        }
+
+        void Destruction()
+        {
+            SystemInformation("destruction...");
+            {
+                //...
+            }
+        }
+
+        void Destroyed()
+        {
+            {
+                //...
+            }
+            SystemInformation("destroyed");
         }
 
         public void Command(string command)
@@ -250,7 +274,7 @@ namespace Zealot.manager
                 {
                     if (_scanAddresses[address] == true)
                     {
-                        Logger.I.To(this, $"Недалось получить доступ к устройсву, освободим аддрес [{address}] и попробуем обратится позже.");
+                        //Logger.I.To(this, $"Недалось получить доступ к устройсву, освободим аддрес [{address}] и попробуем обратится позже.");
 
                         _scanAddresses[address] = false;
                     }
@@ -281,7 +305,7 @@ namespace Zealot.manager
                 {
                     if (!StateInformation.IsDestroy && StateInformation.IsStart)
                     {
-                        Logger.I.To(this, "Получена комманда update на переодическое сканирование сети.");
+                        //Logger.I.To(this, "Получена комманда update на переодическое сканирование сети.");
 
                         if (_isStart == false && _isUpdate == false)
                         {
@@ -321,7 +345,7 @@ namespace Zealot.manager
                     foreach (string unlockedAddress in unlockedIpAddresses)
                         if (_scanAddresses.ContainsKey(unlockedAddress))
                         {
-                            Logger.I.To(this, $"Статус блокировки:{_scanAddresses[unlockedAddress]}, Разблокируем.");
+                            //Logger.I.To(this, $"Статус блокировки:{_scanAddresses[unlockedAddress]}, Разблокируем.");
                             _scanAddresses[unlockedAddress] = false;
                         }
 
@@ -353,7 +377,7 @@ namespace Zealot.manager
 
                                 if (try_obj(address, out NetRequest obj))
                                 {
-                                    Logger.S_E.To(this, $"Вы попытались повторно просканировать адресс [{obj.Address}] из который уже получичи асик.");
+                                    //Logger.S_E.To(this, $"Вы попытались повторно просканировать адресс [{obj.Address}] из который уже получичи асик.");
 
                                     destroy();
 
@@ -361,14 +385,14 @@ namespace Zealot.manager
                                 }
                                 else 
                                 {
-                                    Logger.I.To(this, $"Новый NetRequest {address}");
+                                    //Logger.I.To(this, $"Новый NetRequest {address}");
 
                                     obj<NetRequest>(address, address);
                                 }
                             }
                             else 
                             {
-                                Logger.I.To(this, $"Неудалось создать новый NetRequest так как по данному адрессу уже была получен асик.");
+                                //Logger.I.To(this, $"Неудалось создать новый NetRequest так как по данному адрессу уже была получен асик.");
                             }
                         }
                         else

@@ -532,7 +532,7 @@ namespace Butterfly.system.objects.main.manager
         {
             lock (_stateInformation.Locker)
             {
-                SystemInformation("Декрипентируем(открываем возможность уничтожения)", ConsoleColor.Yellow);
+                SystemInformation("Декриментируем(открываем возможность уничтожения)", ConsoleColor.Yellow);
                 if ((--_index) <= 0 && _stateInformation.IsDestroying)
                 {
                     SystemInformation("Обьект уничтожается(открываем возомжность долнейшего уничтожения.)", ConsoleColor.Yellow);

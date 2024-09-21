@@ -94,6 +94,8 @@ namespace Zealot.manager.network
                 try
                 {
                     _listener.Stop();
+                    _listener.Dispose();
+                    _listener = null;
                 }
                 catch (Exception ex)
                 {

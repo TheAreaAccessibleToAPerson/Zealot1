@@ -15,13 +15,16 @@ namespace Zealot.manager
             // Сюда приходит сообщение содеждащее новое SSL подключение,
             // обрабатываемое событием Work Client
             listen_message<TcpClient>(BUS.ADD_CONNECTION_CLIENT)
-                .output_to(AddConnectionClient);
+                .output_to(AddConnectionClient, Header.Events.CLIENT_WORK);
 
             listen_message<IClientConnect>(BUS.REMOVE_DISCONNECTION_CLIENT)
-                .output_to(RemoveDisconnectionClient);
+                .output_to(RemoveDisconnectionClient, Header.Events.CLIENT_WORK);
 
-            listen_echo_2_1<AddNewClient, IClientConnect, AddNewClientResult>(BUS.ADD_NEW_CLIENT)
-                .output_to(AddNewClient);
+            listen_echo_2_2<AddNewClient, IClientConnect, AddNewClientResult, ClientData>(BUS.ADD_NEW_CLIENT)
+                .output_to(EAddNewClient, Header.Events.MONGO_DB);
+
+            listen_message<ClientData>(BUS.SEND_NEW_CLIENT_TO_ADMINS)
+                .output_to(SendClientsToAdmins, Header.Events.CLIENT_WORK);
         }
 
         void Start()
@@ -46,6 +49,17 @@ namespace Zealot.manager
             /// Добавляет нового клиента.
             /// </summary>
             public const string ADD_NEW_CLIENT = NAME + ":Add new client";
+
+            /// <summary>
+            /// Был добавлен новый клиент, отправим данные всем клинтам
+            /// (админам) в том числе админу который его добавил.
+            /// </summary>
+            public const string SEND_NEW_CLIENT_TO_ADMINS = NAME + "Send new clinet to admins";
+
+            /// <summary>
+            /// Получить общую информацию всех клиeнтов(Логин, парль, полное имя, уровент доступа.)
+            /// </summary> 
+            public const string GET_CLIENTS_DATA = NAME + "Get clinets data";
         }
 
         public struct DB
@@ -103,7 +117,7 @@ namespace Zealot.manager
                         /// <summary>
                         /// Дата добавления клиeнта.
                         /// </summary> <summary>
-                        public const string ADD_DATE = "AddDate";
+                        public const string CREATING_DATE = "AddDate";
 
                         /// <summary>
                         /// До какой даты работают машины клинта.
@@ -117,6 +131,21 @@ namespace Zealot.manager
         public interface IClientConnect
         {
             /// <summary>
+            /// Отправляет SSL сообщение клиенту.
+            /// </summary>
+            public void SendMessage(byte[] message);
+
+            /// <summary>
+            /// Отправляет SSL сообщение клиенту.
+            /// </summary>
+            public void SendMessage(string message);
+
+            /// <summary>
+            /// Отправляет SSL сообщение клиенту.
+            /// </summary>
+            public void SendMessage<JsonType>(JsonType json, int type);
+
+            /// <summary>
             /// Ключ по которому создается обьект в нутри библиотеки.
             /// </summary>
             public string GetKey();
@@ -129,7 +158,7 @@ namespace Zealot.manager
             /// <summary>
             /// Возращает уникальный идентификатор клиeнта.
             /// </summary>
-            public string GetClientID();
+            public string GetClientLogin();
 
             /// <summary>
             /// Возращает полное имя клиента.

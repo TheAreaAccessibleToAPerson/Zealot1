@@ -54,7 +54,7 @@ namespace Zealot
             /// <summary>
             /// Авторизаци прошла усмешна. 
             /// </summary> <summary>
-            public const int SUCCSESS_AUTHORIZATION = 0;
+            public const int SUCCESS_AUTHORIZATION = 0;
 
             /// <summary>
             /// Неверный логин или пароль. 
@@ -65,6 +65,16 @@ namespace Zealot
             /// Данные клиeнта.
             /// </summary> 
             public const int CLIENT_DATA = 2;
+
+            /// <summary>
+            /// Результат добавление нового клиента.
+            /// </summary> 
+            public const int ADD_NEW_CLIENT_RESULT = 3;
+
+            /// <summary>
+            /// Отправляем админам клиента.
+            /// </summary> 
+            public const int ADD_CLIENT_DATA = 4;
         }
     }
 }

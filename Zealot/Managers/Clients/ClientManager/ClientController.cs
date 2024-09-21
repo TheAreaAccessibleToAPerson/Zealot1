@@ -1,13 +1,10 @@
 using System.Net.Sockets;
-using System.Text.Json;
 using Butterfly;
 
 namespace Zealot.manager
 {
     public abstract class ClientController : ClientMain
     {
-
-
         /// <summary>
         /// Запрашиваем все машинки которые пренадлежат клиенту.
         /// </summary> <summary>
@@ -107,8 +104,13 @@ namespace Zealot.manager
                             if (ClientInitialize != null)
                             {
                                 // Отправляем клиенту данные.
-                                SendSslMessage(ServerMessage.GetMessageArray(ServerMessage.SSLType.CLIENT_DATA,
-                                    JsonSerializer.SerializeToUtf8Bytes(ClientInitialize)));
+                                SendSslMessage(ClientInitialize, ServerMessage.SSLType.CLIENT_DATA);
+
+                                // Если клиент является администратором, то запросим ему 
+                                // общие данные клиентов.
+                                if (IsAdmin())
+                                {
+                                }
 
                                 i_setState.To(Client.State.START_SUBSCRIBE_TO_ASICS);
                             }
@@ -118,6 +120,8 @@ namespace Zealot.manager
                                     "проинициализировано поле ClientInitialize");
 
                                 destroy();
+
+                                return;
                             }
                         }
                         else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
@@ -165,8 +169,7 @@ namespace Zealot.manager
                                             {
                                                 Logger.I.To(this, $"Отправляем клиенту порт [{port}] для TCP подключения.");
 
-                                                SendSslMessage(ServerMessage.GetMessageArray(ServerMessage.SSLType.SUCCSESS_AUTHORIZATION,
-                                                    JsonSerializer.SerializeToUtf8Bytes(new ClientTCPPort() { port = port })));
+                                                SendSslMessage(new ClientTCPPortJson() { Port = port }, ServerMessage.SSLType.SUCCESS_AUTHORIZATION);
                                             }
                                             else
                                             {
@@ -211,7 +214,7 @@ namespace Zealot.manager
                                             }
                                         }
                                     }
-                                } ,
+                                },
                                 Header.Events.SYSTEM);
 
                             obj<ReceiveTCPConnection>($"ReceiveTcpConnection[Addr:{RemoteAddress}, Port:{RemotePort}]",
@@ -221,8 +224,15 @@ namespace Zealot.manager
                                     ResultReturn = listenResultConnectionName
                                 });
                         }
-                        else Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
-                            $" $только если текущее состояние {Client.State.NONE}");
+                        else
+                        {
+                            Logger.S_E.To(this, $"Вы можете сменить состояние обьекта на {nextState}, " +
+                                $" $только если текущее состояние {Client.State.NONE}");
+
+                            destroy();
+
+                            return;
+                        }
                     }
                 }
             }

@@ -45,17 +45,17 @@ namespace Zealot.manager
 
                         return;
                     }
-                }
 
-                timer += 100;
+                    timer += 100;
 
-                if (timer > 5000)
-                {
-                    i_returnResult.To(false, null);
+                    if (timer > 5000)
+                    {
+                        i_returnResult.To(false, null);
 
-                    destroy();
+                        destroy();
 
-                    return;
+                        return;
+                    }
                 }
             });
         }
@@ -121,23 +121,22 @@ namespace Zealot.manager
         {
             Logger.I.To(this, "start stopping");
             {
-                if (StateInformation.IsCallConfigurate)
+                try
                 {
-                    try
-                    {
-                        _listener.Stop();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.I.To(this, ex.Message);
-                    }
-
-                    if (FreePortsStorage.SetFreePort(GetKey(), _port, out string info))
-                    {
-                        Logger.I.To(this, info);
-                    }
-                    else Logger.S_E.To(this, info);
+                    _listener.Stop();
+                    _listener.Dispose();
+                    _listener = null;
                 }
+                catch (Exception ex)
+                {
+                    Logger.I.To(this, ex.Message);
+                }
+
+                if (FreePortsStorage.SetFreePort(GetKey(), _port, out string info))
+                {
+                    Logger.I.To(this, info);
+                }
+                else Logger.S_E.To(this, info);
             }
             Logger.I.To(this, "end stopping");
         }

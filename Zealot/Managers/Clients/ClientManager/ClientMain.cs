@@ -44,12 +44,17 @@ namespace Zealot.manager
 
         // Добавляет новые асики. Отправлет задачу на выполнение в DeviceManager.
         // После получает результат.
-        protected IInput<List<AddNewAsic>, Clients.IClientConnect> I_addNewAsics;
+        protected IInput<List<AddNewAsicJson>, Clients.IClientConnect> I_addNewAsics;
 
         /// <summary>
         /// Добовляет нового клиента в ClientsManager.
         /// </summary>
         protected IInput<AddNewClient, Clients.IClientConnect> I_addNewClient;
+
+        /// <summary>
+        /// После того как был добавлен новый клиент разошлем его всем админам.
+        /// </summary>
+        protected IInput<ClientData> I_sendNewClient;
 
         public void SendTcpMessage(string message)
         {
@@ -75,6 +80,17 @@ namespace Zealot.manager
             }
         }
 
+        public void SendSslMessage<JsonType>(JsonType json, int type)
+        {
+            if (IsRunning)
+            {
+                // Отправляет клиенту результат добавление нового клиeнта.
+                byte[] message = ServerMessage.GetMessageArray(type, JsonSerializer.SerializeToUtf8Bytes(json));
+
+                I_sendSSLBytesMessage.To(message);
+            }
+        }
+
         public void SendSslMessage(byte[] message)
         {
             if (IsRunning)
@@ -85,17 +101,25 @@ namespace Zealot.manager
 
         public void SendMessage(byte[] message)
         {
-            if (IsRunning && CurrentState == Client.State.RUNNING)
+            if (CurrentState == Client.State.RUNNING)
             {
-                SendTcpMessage(message);
+                SendSslMessage(message);
             }
         }
 
         public void SendMessage(string message)
         {
-            if (IsRunning && CurrentState == Client.State.RUNNING)
+            if (CurrentState == Client.State.RUNNING)
             {
-                SendTcpMessage(message);
+                SendSslMessage(message);
+            }
+        }
+
+        public void SendMessage<JsonType>(JsonType json, int type)
+        {
+            if (CurrentState == Client.State.RUNNING)
+            {
+                SendSslMessage(json, type);
             }
         }
 
@@ -157,7 +181,7 @@ namespace Zealot.manager
 
                             Console(str);
 
-                            LoginAndPassword j = JsonSerializer.Deserialize<LoginAndPassword>(str);
+                            LoginAndPasswordJson j = JsonSerializer.Deserialize<LoginAndPasswordJson>(str);
 
                             Logger.I.To(this, $"Login:{j.login}, Password:{j.password}");
 
@@ -172,7 +196,7 @@ namespace Zealot.manager
 
                             Console(str);
 
-                            List<AddNewAsic> j = JsonSerializer.Deserialize<List<AddNewAsic>>(str);
+                            List<AddNewAsicJson> j = JsonSerializer.Deserialize<List<AddNewAsicJson>>(str);
                         }
                         else if (type == 2)
                         {
@@ -198,9 +222,15 @@ namespace Zealot.manager
                         index += headerLength + messageLength;
                         if (index >= length) return;
                     }
-                    else Logger.S_W.To(this, $"Пришло сообщение в котором длина заголовка меньше минимально возможной.");
-                }
+                    else
+                    {
+                        Logger.S_W.To(this, $"Пришло сообщение в котором длина заголовка меньше минимально возможной.");
 
+                        destroy();
+
+                        return;
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -300,8 +330,9 @@ namespace Zealot.manager
         }
 
         public bool IsAdmin() => true;
+        public bool IsRoot() => true;
 
-        protected void EAddNewAsics(List<AddNewAsic> value)
+        protected void EAddNewAsics(List<AddNewAsicJson> value)
         {
             if (IsAdmin() == false)
             {
@@ -319,27 +350,55 @@ namespace Zealot.manager
             }
         }
 
-        protected void EAddNewAsicsResult(List<AddNewAsicsResult> value)
-        {
-
-        }
-
-        protected void EAddNewClientResult(AddNewClientResult value)
+        protected void EAddNewAsicsResult(List<AddNewAsicsResultJson> value)
         {
         }
 
-        /// <summary>
-        /// По данному ID клиент хранится в нутри компании.
-        /// </summary>
-        public string GetClientID()
+        protected void EAddNewClientResult(AddNewClientResult result, ClientData data)
         {
-            if (ClientInitialize != null)
+            if (IsAdmin())
             {
-                return ClientInitialize.ID;
+                Logger.I.To(this,
+                    $"New client result:\n" +
+                $"{Clients.DB.Client.Collection.Key.LOGIN}:{result.LoginResult}\n" +
+                $"{Clients.DB.Client.Collection.Key.PASSWORD}:{result.PasswordResult}\n" +
+                $"{Clients.DB.Client.Collection.Key.EMAIL}:{result.EmailResult}\n" +
+                $"{Clients.DB.Client.Collection.Key.FULL_NAME}:{result.FullNameResult}\n" +
+                $"{Clients.DB.Client.Collection.Key.ORGANIZATION_NAME}:{result.OrganizationNameResult}\n"
+                );
+
+                SendSslMessage(result, ServerMessage.SSLType.ADD_NEW_CLIENT_RESULT);
+
+                if (result.IsSuccess && data != null)
+                {
+                    Logger.I.To(this, "Успешно добавление нового клиента, приступаем к рассылки всем администраторам данных о нем.");
+
+                    I_sendNewClient.To(data);
+                }
+                else Logger.I.To(this, "Неудалось добавить нового клиента.");
             }
             else
             {
-                Logger.S_E.To(this, $"Вы запросили id клиента(в компании), но к этому моменту еще небыло проинициализировано поле" +
+                Logger.S_E.To(this, $"Вам пришел результат добавления нового клинта, но данный клиент не является админом.");
+
+                destroy();
+
+                return;
+            }
+        }
+
+        /// <summary>
+        /// По данному логину.
+        /// </summary>
+        public string GetClientLogin()
+        {
+            if (ClientInitialize != null)
+            {
+                return ClientInitialize.Login;
+            }
+            else
+            {
+                Logger.S_E.To(this, $"Вы запросили логин клиента(в компании), но к этому моменту еще небыл проинициализирован обьект " +
                     $" в котором хранится данное значение.(CurrentState:{CurrentState})");
 
                 destroy();
@@ -348,51 +407,7 @@ namespace Zealot.manager
             }
         }
 
-        public struct DB
-        {
-            public const string NAME = "Clients";
-
-            public struct AsicsCollection
-            {
-                public const string NAME = "AsicsCollection";
-
-                // ID клиента которому принадлежит асик.
-                public const string CLIENT_ID = "ClientID";
-                public const string DATA_JSON = "DataJson";
-            }
-
-            public struct ClientsCollection
-            {
-                public const string NAME = "ClientsCollection";
-
-                public struct Client
-                {
-                    // Активирован ли данный аккаунт.
-                    public const string IS_ACITVATED = "IsActivated";
-
-                    // Логин
-                    public const string LOGIN = "Login";
-
-                    // Пароль.
-                    public const string PASSWORD = "Password";
-
-                    public const string ID = "ID";
-                    public const string NAME = "Name";
-                    public const string EMAIL = "Email";
-                    public const string ASICS_JSON = "AsicsJson";
-
-                    // Права доступа.
-                    public struct ACCESS_RIGHTS
-                    {
-                        public const string STR = "AccessRigths";
-
-                        public const string ROOT = "Root";
-                    }
-                }
-            }
-        }
-
-        public void CheckLoginAndPassword(LoginAndPassword data)
+        public void CheckLoginAndPassword(LoginAndPasswordJson data)
         {
             if (data.login.Length < 4)
             {
@@ -413,25 +428,31 @@ namespace Zealot.manager
             else
             {
                 // Проверяем наличие документа хранящего адреса и диопазоны адресов.
-                if (MongoDB.TryFind(DB.NAME, DB.ClientsCollection.NAME, out string findInfo,
+                if (MongoDB.TryFind(Clients.DB.Client.NAME, Clients.DB.Client.Collection.NAME, out string findInfo,
                     out List<BsonDocument> clients))
                 {
                     try
                     {
                         foreach (BsonDocument client in clients)
                         {
-                            if (data.login == client[DB.ClientsCollection.Client.LOGIN])
+                            if (data.login == client[Clients.DB.Client.Collection.Key.LOGIN])
                             {
-                                if (data.password == client[DB.ClientsCollection.Client.PASSWORD])
+                                if (data.password == client[Clients.DB.Client.Collection.Key.PASSWORD])
                                 {
                                     if (ClientInitialize == null)
                                     {
                                         ClientInitialize = new ClientInitialize()
                                         {
-                                            ID = client[DB.ClientsCollection.Client.ID].ToString(),
-                                            Name = client[DB.ClientsCollection.Client.NAME].ToString(),
-                                            Email = client[DB.ClientsCollection.Client.EMAIL].ToString(),
-                                            AccessRights = client[DB.ClientsCollection.Client.ACCESS_RIGHTS.STR].ToString(),
+                                            Login = data.login,
+                                            Password = data.password,
+                                            FullName = client[Clients.DB.Client.Collection.Key.FULL_NAME].ToString(),
+                                            Email = client[Clients.DB.Client.Collection.Key.EMAIL].ToString(),
+                                            OrganizationName = client[Clients.DB.Client.Collection.Key.ORGANIZATION_NAME].ToString(),
+                                            AccessRights = client[Clients.DB.Client.Collection.Key.ACCESS_RIGHTS].ToString(),
+                                            AsicsCount = client[Clients.DB.Client.Collection.Key.ASICS_COUNT].ToInt32(),
+                                            CreatingDate = client[Clients.DB.Client.Collection.Key.CREATING_DATE].ToString(),
+                                            WorkUntilWhatDate = client[Clients.DB.Client.Collection.Key.WORK_UNTIL_WHAT_DATE].ToString(),
+                                            IsRunning = client[Clients.DB.Client.Collection.Key.IS_RUNNING].ToBoolean(),
                                         };
 
                                         if (ClientInitialize.IsInitialize)
@@ -480,6 +501,8 @@ namespace Zealot.manager
                         Logger.I.To(this, $"Поступил несущесвующий логин:[{data.login}].");
 
                         destroy();
+
+                        return;
                     }
                     catch (Exception ex)
                     {

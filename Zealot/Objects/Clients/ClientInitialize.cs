@@ -3,23 +3,48 @@ using Zealot.manager;
 
 namespace Zealot
 {
-    public class LoginAndPassword
+    public class LoginAndPasswordJson
     {
         public string login { set; get; }
         public string password { set; get; }
     }
 
-    public class ClientTCPPort
+    public class ClientTCPPortJson
     {
-        public int port { set; get; }
+        public int Port { set; get; }
+    }
+
+    public class ClientJson
+    {
     }
 
     public class ClientInitialize
     {
-        public string FullName {set;get;} = "";
-        public string ID { set; get; } = "";
-        public string Name { set; get; } = "";
+        public string FullName { set; get; } = "";
         public string Email { set; get; } = "";
+        public string Login { set; get; } = "";
+        public string Password { set; get; } = "";
+        public string OrganizationName { set; get; } = "";
+
+        /// <summary>
+        /// Кол-во машин у клиента.
+        /// </summary>
+        public int AsicsCount {set;get;} = 0;
+
+        /// <summary>
+        /// Дата создания клиента.
+        /// </summary>
+        public string CreatingDate {set;get;} = "";
+
+        /// <summary>
+        /// До какого числа работает данный клиент.
+        /// </summary>
+        public string WorkUntilWhatDate {set;get;} = "";
+
+        /// <summary>
+        /// Разрешина ли работа машин у клиента.
+        /// </summary>
+        public bool IsRunning {set;get;} = false;
 
         // 0 - полный доступ.(root)
         // 1 - дежурный(не доступна полная информация о клинтах).
@@ -33,12 +58,7 @@ namespace Zealot
             {
                 bool result = true;
 
-                if (ID == "")
-                {
-                    Error += "В обьекте ClientInitialize не проинициализировано св-во ID. ";
-                    result = false;
-                }
-                if (Name == "")
+                if (FullName == "")
                 {
                     Error += "В обьекте ClientInitialize не проинициализировано св-во Name. ";
                     result = false;
@@ -85,7 +105,7 @@ namespace Zealot
 
         public bool SetAsics(List<AsicInit> asics, out string info)
         {
-            info = $"Клиент ID:[{ID}], Name:[{Name}], Email:[{Email}], AccessRights[{AccessRights}], ";
+            info = $"Name:[{FullName}], Email:[{Email}], AccessRights[{AccessRights}], ";
 
             if (Asics == null)
             {
@@ -267,7 +287,7 @@ namespace Zealot
         {
             // ID Клиента.
             public string ID { set; get; } = "";
-            public string NAME {set;get;} = "";
+            public string NAME { set; get; } = "";
         }
 
         public class LocationInformation

@@ -38,21 +38,47 @@ namespace Zealot.hellper
         /// </summary> 
         public void Destroy()
         {
-            if (StateInformation.IsCallConstruction)
+            lock (StateInformation.Locker)
             {
-                Logger.I.To(this, $"В данный момент устросво не доступно, освободим его аддрес {Address} и позже попробуем получить к нему доступ.");
+                if (!StateInformation.IsDestroy)
+                {
+                    if (StateInformation.IsCallConstruction)
+                    {
+                        //Logger.I.To(this, $"В данный момент устросво не доступно, освободим его аддрес {Address} и позже попробуем получить к нему доступ.");
 
-                i_emptyAddressToDevicesScaner.To(Address);
+                        i_emptyAddressToDevicesScaner.To(Address);
 
-                destroy();
+                        destroy();
 
-                return;
+                        return;
+                    }
+                }
+            }
+        }
+        void Stop()
+        {
+            Logger.I.To(this, "stopping ...");
+            {
+
             }
         }
 
-        void Stop()
+        void Destruction()
         {
+            Logger.I.To(this, "destruction...");
+            {
+                //...
+            }
         }
+
+        void Destroyed()
+        {
+            {
+                //...
+            }
+            Logger.I.To(this, "destroyed");
+        }
+
 
         void Start()
         {
@@ -78,46 +104,52 @@ namespace Zealot.hellper
 
         private void FinishWebRequest(IAsyncResult result)
         {
-            try
+            lock (StateInformation.Locker)
             {
-                HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
-
-                using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                if (!StateInformation.IsDestroy)
                 {
-                    string str = stream.ReadToEnd();
-
-                    i_send.To(Field, str);
-
-                    destroy();
-                }
-            }
-            catch (Exception ex)
-            {
-                if (ex.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
-                {
-                    if (_currentState == State.HTTP_REQUEST)
+                    try
                     {
-                        HttpAuthorizationRequest();
+                        HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
+
+                        using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                        {
+                            string str = stream.ReadToEnd();
+
+                            i_send.To(Field, str);
+
+                            destroy();
+                        }
                     }
-                    else if (_currentState == State.HTTPS_AUTHORIZATION_REQUEST)
+                    catch (Exception ex)
                     {
-                        //Logger.S_E.To(this, "Неудалось авторизоваться по логину/паролю admin.");
-                        Destroy();
+                        if (ex.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
+                        {
+                            if (_currentState == State.HTTP_REQUEST)
+                            {
+                                HttpAuthorizationRequest();
+                            }
+                            else if (_currentState == State.HTTPS_AUTHORIZATION_REQUEST)
+                            {
+                                //Logger.S_E.To(this, "Неудалось авторизоваться по логину/паролю admin.");
+                                Destroy();
+                            }
+                            else
+                            {
+                                //Logger.S_E.To(this, "1 Неудалось авторизоваться.");
+                                Destroy();
+                            }
+                        }
+                        else if (ex.ToString().Contains("The SSL connection could not be established, see inner exception"))
+                        {
+                            HttpsAuthorizationRequest();
+                        }
+                        else
+                        {
+                            Destroy();
+                            //Logger.S_E.To(this, ex.ToString());
+                        }
                     }
-                    else
-                    {
-                        //Logger.S_E.To(this, "1 Неудалось авторизоваться.");
-                        Destroy();
-                    }
-                }
-                else if (ex.ToString().Contains("The SSL connection could not be established, see inner exception"))
-                {
-                    HttpsAuthorizationRequest();
-                }
-                else
-                {
-                    Destroy();
-                    //Logger.S_E.To(this, ex.ToString());
                 }
             }
         }
@@ -131,174 +163,186 @@ namespace Zealot.hellper
 
         private void Http2Request()
         {
-            try
+            lock (StateInformation.Locker)
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address);
-                //request.CookieContainer = cookeis;
-                request.BeginGetResponse(new AsyncCallback((result) =>
+                if (!StateInformation.IsDestroy)
                 {
                     try
                     {
-                        HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
-
-                        using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address);
+                        //request.CookieContainer = cookeis;
+                        request.BeginGetResponse(new AsyncCallback((result) =>
                         {
-                            string str = stream.ReadToEnd();
-
-                            i_send.To(Field, str);
-
-                            destroy();
-
-                            return;
-                        }
-                    }
-                    catch (Exception httpEx)
-                    {
-                        try
-                        {
-                            if (httpEx.ToString().Contains("The SSL connection could not be established, see inner exception"))
+                            try
                             {
-                                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "/cgi-bin/luci" + "?luci_username=admin&luci_password=admin");
+                                HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
 
-                                request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
-                                request.CookieContainer = cookeis;
-
-                                request.BeginGetResponse(new AsyncCallback((result) =>
+                                using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
                                 {
-                                    try
+                                    string str = stream.ReadToEnd();
+
+                                    i_send.To(Field, str);
+
+                                    destroy();
+
+                                    return;
+                                }
+                            }
+                            catch (Exception httpEx)
+                            {
+                                try
+                                {
+                                    if (httpEx.ToString().Contains("The SSL connection could not be established, see inner exception"))
                                     {
-                                        HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
+                                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "/cgi-bin/luci" + "?luci_username=admin&luci_password=admin");
 
-                                        using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                                        request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+                                        request.CookieContainer = cookeis;
+
+                                        request.BeginGetResponse(new AsyncCallback((result) =>
                                         {
-                                            string str = stream.ReadToEnd();
-
-                                            i_send.To(Field, str);
-
-                                            destroy();
-
-                                            return;
-                                        }
-                                    }
-                                    catch (Exception httpsAdminException)
-                                    {
-                                        if (httpsAdminException.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
-                                        {
-                                            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "?username=root&password=root");
-
-                                            request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
-                                            request.UseDefaultCredentials = false;
-                                            //request.CookieContainer = cookeis;
-
-                                            request.BeginGetResponse(new AsyncCallback((result) =>
+                                            try
                                             {
-                                                try
+                                                HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
+
+                                                using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
                                                 {
-                                                    HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
+                                                    string str = stream.ReadToEnd();
 
-                                                    using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
-                                                    {
-                                                        string str = stream.ReadToEnd();
+                                                    i_send.To(Field, str);
 
-                                                        i_send.To(Field, str);
+                                                    destroy();
 
-                                                        destroy();
-
-                                                        return;
-                                                    }
+                                                    return;
                                                 }
-                                                catch (Exception eee)
+                                            }
+                                            catch (Exception httpsAdminException)
+                                            {
+                                                if (httpsAdminException.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
                                                 {
-                                                    //Console(eee.ToString());
+                                                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "?username=root&password=root");
+
+                                                    request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+                                                    request.UseDefaultCredentials = false;
+                                                    //request.CookieContainer = cookeis;
+
+                                                    request.BeginGetResponse(new AsyncCallback((result) =>
+                                                    {
+                                                        try
+                                                        {
+                                                            HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
+
+                                                            using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                                                            {
+                                                                string str = stream.ReadToEnd();
+
+                                                                i_send.To(Field, str);
+
+                                                                destroy();
+
+                                                                return;
+                                                            }
+                                                        }
+                                                        catch (Exception eee)
+                                                        {
+                                                            //Console(eee.ToString());
+                                                            Destroy();
+
+                                                            return;
+                                                        }
+                                                    }),
+                                                    request);
+                                                } //874
+                                                else
+                                                {
+                                                    //Console(httpsAdminException.ToString());
                                                     Destroy();
 
                                                     return;
                                                 }
-                                            }),
-                                            request);
-                                        } //874
-                                        else
-                                        {
-                                            //Console(httpsAdminException.ToString());
-                                            Destroy();
-
-                                            return;
-                                        }
+                                            }
+                                        }),
+                                        request);
                                     }
-                                }),
-                                request);
-                            }
-                            else if (httpEx.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
-                            {
-                                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address + "/");
-
-                                request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
-                                request.Credentials = new NetworkCredential("root", "root");
-                                //request.UseDefaultCredentials = false;
-                                //request.CookieContainer = cookeis;
-
-                                request.BeginGetResponse(new AsyncCallback((result) =>
-                                {
-                                    try
+                                    else if (httpEx.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
                                     {
-                                        HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
+                                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address + "/");
 
-                                        using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                                        request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+                                        request.Credentials = new NetworkCredential("root", "root");
+                                        //request.UseDefaultCredentials = false;
+                                        //request.CookieContainer = cookeis;
+
+                                        request.BeginGetResponse(new AsyncCallback((result) =>
                                         {
-                                            string str = stream.ReadToEnd();
+                                            try
+                                            {
+                                                HttpWebResponse response = (result.AsyncState as HttpWebRequest).EndGetResponse(result) as HttpWebResponse;
 
-                                            i_send.To(Field, str);
+                                                using (StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                                                {
+                                                    string str = stream.ReadToEnd();
 
-                                            destroy();
-                                        }
+                                                    i_send.To(Field, str);
+
+                                                    destroy();
+                                                }
+                                            }
+                                            catch (Exception eee)
+                                            {
+                                                //Console(eee.ToString());
+                                                Destroy();
+                                            }
+                                        }),
+                                        request);
                                     }
-                                    catch (Exception eee)
+                                    else
                                     {
-                                        //Console(eee.ToString());
                                         Destroy();
                                     }
-                                }),
-                                request);
+                                }
+                                catch (Exception ex)
+                                {
+                                    //Console(ex.ToString());
+                                    Destroy();
+                                }
                             }
-                            else 
-                            {
-                                Destroy();
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            //Console(ex.ToString());
-                            Destroy();
-                        }
-                    }
 
-                }),
-                request);
-            }
-            catch (Exception ex)
-            {
-                //Console(ex.ToString());
-                Destroy();
+                        }),
+                        request);
+                    }
+                    catch (Exception ex)
+                    {
+                        //Console(ex.ToString());
+                        Destroy();
+                    }
+                }
             }
         }
 
         private void HttpAuthorizationRequest()
         {
-            try
+            lock (StateInformation.Locker)
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address);
+                if (!StateInformation.IsDestroy)
+                {
+                    try
+                    {
+                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://" + Address);
 
-                _currentState = State.HTTP_AUTHORIZATION_REQUEST;
+                        _currentState = State.HTTP_AUTHORIZATION_REQUEST;
 
-                request.Credentials = new NetworkCredential("root", "root");
+                        request.Credentials = new NetworkCredential("root", "root");
 
-                request.BeginGetResponse(new AsyncCallback(FinishWebRequest), request);
-            }
-            catch (Exception ex)
-            {
-                Destroy();
+                        request.BeginGetResponse(new AsyncCallback(FinishWebRequest), request);
+                    }
+                    catch (Exception ex)
+                    {
+                        Destroy();
 
-                Console(ex.ToString());
+                        Console(ex.ToString());
+                    }
+                }
             }
         }
 
@@ -307,50 +351,34 @@ namespace Zealot.hellper
 
         public void HttpsAuthorizationRequest()
         {
-            try
+            lock (StateInformation.Locker)
             {
-                lock (locker)
+                if (!StateInformation.IsDestroy)
                 {
-                    index++;
-                    Console(index);
+                    try
+                    {
+                        lock (locker)
+                        {
+                            index++;
+                            Console(index);
+                        }
+
+                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "?username=admin&password=admin");
+
+                        request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+
+                        _currentState = State.HTTPS_AUTHORIZATION_REQUEST;
+
+                        request.Credentials = new NetworkCredential("admin", "admin");
+
+                        request.BeginGetResponse(new AsyncCallback(FinishWebRequest), request);
+                    }
+                    catch (Exception ex)
+                    {
+                        Destroy();
+                        Console(ex.ToString());
+                    }
                 }
-
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://" + Address + "?username=admin&password=admin");
-
-                request.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
-
-                _currentState = State.HTTPS_AUTHORIZATION_REQUEST;
-
-                request.Credentials = new NetworkCredential("admin", "admin");
-
-                request.BeginGetResponse(new AsyncCallback(FinishWebRequest), request);
-            }
-            catch (Exception ex)
-            {
-                Destroy();
-                Console(ex.ToString());
-            }
-        }
-
-        private void Exception(Exception ex)
-        {
-            System.Console.WriteLine(ex.ToString());
-
-            if (ex.ToString().Contains("The SSL connection could not be established, see inner exception"))
-            {
-                //Console("KDJFKJDF");
-            }
-            else if (ex.ToString().Contains("The remote server returned an error: (401) Unauthorized"))
-            {
-            }
-            else if (ex.ToString().Contains("Попытка установить соединение была безуспешной"))
-            {
-            }
-            else if (ex.ToString().Contains("Сделана попытка выполнить операцию на сокете при отключенной сети"))
-            {
-            }
-            else
-            {
             }
         }
     }

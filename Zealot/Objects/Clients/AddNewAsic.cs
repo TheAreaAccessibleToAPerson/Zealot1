@@ -1,6 +1,6 @@
 namespace Zealot
 {
-    public sealed class AddNewAsic
+    public sealed class AddNewAsicJson
     {
         /// <summary>
         /// Индекс в строке в которой создается 
@@ -21,7 +21,7 @@ namespace Zealot
     /// <summary>
     /// Хранит результат добавления новых асиков. 
     /// </summary>
-    public sealed class AddNewAsicsResult
+    public sealed class AddNewAsicsResultJson
     {
         public const string SUCCESS = "Success";
         public const string ERROR = "Error";

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Butterfly;
 using MongoDB.Bson;
@@ -8,9 +9,28 @@ namespace Zealot.manager
     {
         protected Devices DevicesManager;
 
-        protected readonly Dictionary<string, ClientMain> Clients = new();
+        /// <summary>
+        /// Сдесь хранится собос связи с авторизоваными на сервере клиeнтами.
+        /// </summary> 
+        protected readonly Dictionary<string, Clients.IClientConnect> Clients = new();
 
-        protected void EAddNewClient(AddNewClient value, Clients.IClientConnect client, IReturn<AddNewClientResult> @return)
+        /// <summary>
+        /// Сдесь хранится общая информация обовсех зарегистрированых клиeнтах.
+        /// </summary> <summary>
+        protected readonly Dictionary<string, ClientData> ClientsData = new(); 
+
+        /// <summary>
+        /// 
+        /// </summary>
+        protected void SendClientsToAdmins(ClientData value)
+        {
+            foreach (Clients.IClientConnect client in Clients.Values)
+            {
+                client.SendMessage(value, ServerMessage.SSLType.ADD_CLIENT_DATA);
+            }
+        }
+
+        protected void EAddNewClient(AddNewClient value, Clients.IClientConnect client, IReturn<AddNewClientResult, ClientData> @return)
         {
             AddNewClientResult result = new();
 
@@ -54,9 +74,10 @@ namespace Zealot.manager
                         }
 
                         // Если введеные данные не верны вернем ответ.
-                        if (result.IsSuccess == false)
+                        if (result.LoginResult != "" || result.PasswordResult != "" ||
+                            result.EmailResult != "" || result.FullNameResult != "")
                         {
-                            @return.To(result);
+                            @return.To(result, null);
 
                             return;
                         }
@@ -86,7 +107,7 @@ namespace Zealot.manager
                                     result.OtherResult = $"Неудалось добавить нового клиeнта[Login:{value.Login}, Password:*********, Email:{value.Email}" +
                                         $"FullName:{value.FullName}, OrganizationName:{value.OrganizationName}].{MongoDB.Error.NOT_CREATING_DB}";
 
-                                    @return.To(result);
+                                    @return.To(result, null);
 
                                     Logger.S_E.To(this, infoR);
 
@@ -119,7 +140,7 @@ namespace Zealot.manager
                                     result.OtherResult = $"Неудалось добавить нового клиeнта[Login:{value.Login}, Password:*********, Email:{value.Email}" +
                                         $"FullName:{value.FullName}, OrganizationName:{value.OrganizationName}].{MongoDB.Error.NOT_CREATING_DB}";
 
-                                    @return.To(result);
+                                    @return.To(result, null);
 
                                     Logger.S_E.To(this, infoI);
 
@@ -133,7 +154,7 @@ namespace Zealot.manager
                                 result.OtherResult = $"Неудалось добавить нового клиeнта[Login:{value.Login}, Password:*********, Email:{value.Email}" +
                                     $"FullName:{value.FullName}, OrganizationName:{value.OrganizationName}] {MongoDB.Error.ERROR_FROM_DB}.";
 
-                                @return.To(result);
+                                @return.To(result, null);
 
                                 Logger.S_E.To(this, error);
 
@@ -164,6 +185,15 @@ namespace Zealot.manager
                                             return;
                                         }
 
+                                        if (doc[manager.Clients.DB.Client.Collection.Key.EMAIL] == email)
+                                        {
+                                            result.EmailResult = $"Клиент с логином {email} уже добавлен.";
+
+                                            Logger.W.To(this, $"Клиент с логином {email} уже добавлен.");
+
+                                            return;
+                                        }
+
                                         if (doc[manager.Clients.DB.Client.Collection.Key.FULL_NAME] == fullName)
                                         {
                                             result.FullNameResult = $"Клиент с именем {fullName} уже добавлен.";
@@ -173,9 +203,11 @@ namespace Zealot.manager
                                             return;
                                         }
 
-                                        if (result.IsSuccess == false)
+                                        // Если введеные данные не верны вернем ответ.
+                                        if (result.LoginResult != "" || result.PasswordResult != "" ||
+                                            result.EmailResult != "" || result.FullNameResult != "")
                                         {
-                                            @return.To(result);
+                                            @return.To(result, null);
 
                                             return;
                                         }
@@ -186,7 +218,7 @@ namespace Zealot.manager
                                     result.OtherResult = $"Неудалось добавить нового клиeнта[Login:{value.Login}, Password:*********, Email:{value.Email}" +
                                         $"FullName:{value.FullName}, OrganizationName:{value.OrganizationName}].{MongoDB.Error.VALUE_EXCEPTION}";
 
-                                    @return.To(result);
+                                    @return.To(result, null);
 
                                     Logger.S_E.To(this, ex.ToString());
 
@@ -200,7 +232,7 @@ namespace Zealot.manager
                                 result.OtherResult = $"Неудалось добавить нового клиeнта[Login:{value.Login}, Password:*********, Email:{value.Email}" +
                                     $"FullName:{value.FullName}, OrganizationName:{value.OrganizationName}].{MongoDB.Error.VALUE_IS_NULL}";
 
-                                @return.To(result);
+                                @return.To(result, null);
 
                                 Logger.S_E.To(this, findInfo);
 
@@ -224,7 +256,7 @@ namespace Zealot.manager
                             { manager.Clients.DB.Client.Collection.Key.IS_RUNNING, true},
                             { manager.Clients.DB.Client.Collection.Key.ACCESS_RIGHTS, value.AccessRight},
                             { manager.Clients.DB.Client.Collection.Key.ASICS_COUNT, 0},
-                            { manager.Clients.DB.Client.Collection.Key.ADD_DATE, currentDate},
+                            { manager.Clients.DB.Client.Collection.Key.CREATING_DATE, currentDate},
                             { manager.Clients.DB.Client.Collection.Key.WORK_UNTIL_WHAT_DATE, currentDate},
                         }))
                         {
@@ -234,8 +266,16 @@ namespace Zealot.manager
                             result.PasswordResult = "Success";
                             result.EmailResult = "Success";
                             result.FullNameResult = "Success";
-                            result.OrganizationNameResult= "Success";
-                            result.AccessRight = "Success";
+                            result.OrganizationNameResult = "Success";
+                            result.AccessRightResult = "Success";
+
+                            ClientData data = new(value);
+                            {
+                                data.AddClientDate = currentDate;
+                                data.WorkUntilWantDate = currentDate;
+                            }
+
+                            invoke_event(() => ClientsData.Add(data.Login, data), Header.Events.CLIENT_WORK);
 
                             Logger.I.To(this,
                                 $"Add new client:\n" +
@@ -247,16 +287,18 @@ namespace Zealot.manager
                             $"{manager.Clients.DB.Client.Collection.Key.IS_RUNNING}:{true}\n" +
                             $"{manager.Clients.DB.Client.Collection.Key.ACCESS_RIGHTS}:{value.AccessRight}\n" +
                             $"{manager.Clients.DB.Client.Collection.Key.ASICS_COUNT}:{0}\n" +
-                            $"{manager.Clients.DB.Client.Collection.Key.ADD_DATE}:{currentDate}\n" +
+                            $"{manager.Clients.DB.Client.Collection.Key.CREATING_DATE}:{currentDate}\n" +
                             $"{manager.Clients.DB.Client.Collection.Key.WORK_UNTIL_WHAT_DATE}:{currentDate}\n"
                             );
+
+                            @return.To(result, data);
                         }
                         else
                         {
                             result.OtherResult = $"Неудалось добавить нового клиeнта[Login:{value.Login}, Password:*********, Email:{value.Email}" +
                                 $"FullName:{value.FullName}, OrganizationName:{value.OrganizationName}].{MongoDB.Error.VALUE_IS_NULL}";
 
-                            @return.To(result);
+                            @return.To(result, null);
 
                             Logger.S_E.To(this, findInfo);
 
@@ -269,7 +311,7 @@ namespace Zealot.manager
                     {
                         result.OtherResult = "Добавить нового клиента может только администратор.";
 
-                        @return.To(result);
+                        @return.To(result, null);
                     }
                 }
                 else
@@ -292,9 +334,14 @@ namespace Zealot.manager
                             $"CurrentState:{StateInformation.CurrentState}";
                     }
 
-                    @return.To(result);
+                    @return.To(result, null);
                 }
             }
+        }
+
+        // Получить все данные клиeнтов.
+        protected void GetAllClientsData()
+        {
         }
     }
 }

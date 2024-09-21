@@ -32,6 +32,19 @@ namespace Zealot
             //AddAsic.StartScript19();
             //AddAsic.StartScript20();
             //AddAsic.RemoveDataBase();
+
+            //AddClient.DeleteCollection();
+
+            AddNewClient i = new();
+            i.AccessRight = "root";
+            i.Email = "root@mail.com";
+            i.FullName = "Лофинг Дмитрий Владимирович";
+            i.Login = "root";
+            i.Password = "123J052Q7SQ3NNJJfrs";
+            i.OrganizationName = "";
+
+            AddClient.Add(i);
+
             obj<manager.Clients>(manager.Clients.NAME);
         }
 

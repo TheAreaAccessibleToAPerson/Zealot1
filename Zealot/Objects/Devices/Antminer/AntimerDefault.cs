@@ -85,7 +85,18 @@ namespace Zealot.device
 
         void Destroyed()
         {
-            IsRun = false;
+            {
+                IsRun = false;
+            }
+            Logger.I.To(this, "destroyed...");
+        }
+
+        void Destruction()
+        {
+            Logger.I.To(this, "destruction...");
+            {
+                //...
+            }
         }
 
         void Start()
